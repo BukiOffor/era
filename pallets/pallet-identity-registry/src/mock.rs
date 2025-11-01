@@ -4,7 +4,7 @@ use frame::{
     runtime::prelude::*,
     testing_prelude::*,
 };
-
+use shared::types::BaseRight;
 // Configure a mock runtime to test the pallet.
 #[frame_construct_runtime]
 mod test_runtime {
@@ -43,6 +43,8 @@ impl crate::Config for Test {
     type MaxStringLength = ConstU32<100>;
     type MaxKeySize = ConstU32<100>;
     type Device = BoundedVec<u8, Self::MaxStringLength>;
+    type Did = BoundedVec<u8, Self::MaxStringLength>;
+    type GivenRight = BaseRight;
 }
 
 // Build genesis storage according to the mock runtime.

@@ -5,6 +5,7 @@ use frame::{
     testing_prelude::*,
 };
 use pallet_identity_registry;
+use shared::types::BaseRight;
 
 // Configure a mock runtime to test the pallet.
 #[frame_construct_runtime]
@@ -46,6 +47,8 @@ impl pallet_identity_registry::Config for Test {
     type MaxKeySize = ConstU32<1024>;
     type MaxStringLength = ConstU32<1024>;
     type Device = BoundedVec<u8, Self::MaxStringLength>;
+    type Did = BoundedVec<u8, Self::MaxStringLength>;
+    type GivenRight = BaseRight;
 }
 
 impl crate::Config for Test {
@@ -54,6 +57,8 @@ impl crate::Config for Test {
     type Device = BoundedVec<u8, ConstU32<1024>>;
     type Did = BoundedVec<u8, ConstU32<1024>>;
     type DidRegistry = pallet_identity_registry::Pallet<Test>; 
+    type GivenRight = BaseRight;
+    type ContentId = BoundedVec<u8, ConstU32<1024>>;
 }
 
 // Build genesis storage according to the mock runtime.

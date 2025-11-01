@@ -66,6 +66,7 @@ use super::{
     MAXIMUM_BLOCK_WEIGHT, MICRO_UNIT, NORMAL_DISPATCH_RATIO, SLOT_DURATION, VERSION,
 };
 use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
+use shared::types::BaseRight;
 
 parameter_types! {
     pub const Version: RuntimeVersion = VERSION;
@@ -323,6 +324,9 @@ impl pallet_identity_registry::Config for Runtime {
     type MaxStringLength = ConstU32<100>;
     type MaxKeySize = ConstU32<100>;
     type Device = BoundedVec<u8, Self::MaxStringLength>;
+    type Did = BoundedVec<u8, Self::MaxStringLength>;
+    type GivenRight = BaseRight;
+    
 }
 
 /// Configure the pallet template in pallets/template.
@@ -332,5 +336,8 @@ impl pallet_content_registry::Config for Runtime {
     type Did = BoundedVec<u8, ConstU32<100>>;
     type Device = BoundedVec<u8, ConstU32<100>>;
     type DidRegistry = IdentityRegistry;
+    type GivenRight = BaseRight;
+    type ContentId = BoundedVec<u8, ConstU32<100>>;
+    
 }
 // 08109649476

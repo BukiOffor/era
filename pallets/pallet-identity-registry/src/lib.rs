@@ -17,6 +17,7 @@ mod benchmarking;
 #[frame::pallet]
 pub mod pallet {
     use frame::prelude::*;
+    use shared::types::BaseRight;
     //use shared::traits::identity::DidManager;
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
@@ -35,43 +36,44 @@ pub mod pallet {
         
         type Device: Parameter + Member + MaxEncodedLen + Clone + Eq + Default;
         
+        type Did: Parameter + Member + MaxEncodedLen + Clone + Eq + Default;
+        
+        type GivenRight: Parameter + Member + MaxEncodedLen + Clone + Eq + Default + From<BaseRight> + Into<BaseRight>;
+                
         //type DidRedistry: DidManager<Self::AccountId,Did<Self>,Device<Self>>;
     }
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
-    pub type Did<T> = BoundedVec<u8, <T as Config>::MaxStringLength>;
-
-    //pub type Device<T> = BoundedVec<u8, <T as Config>::MaxStringLength>;
-
+    
     #[derive(DebugNoBound, Encode, Decode, TypeInfo, Clone, MaxEncodedLen, DecodeWithMemTracking, PartialEq)]
     #[scale_info(skip_type_params(T))]
     pub struct Rights<T: Config> {
         /// The type of right that is granted to the user.
-        pub(crate) right: GivenRight,
+        pub(crate) right: T::GivenRight,
         /// The duration of the right that was granted to the user.
         pub(crate) duration: RightDuration<T>,
     }
 
-    #[derive(
-        DebugNoBound,
-        Encode,
-        Decode,
-        TypeInfo,
-        Clone,
-        MaxEncodedLen,
-        DecodeWithMemTracking,
-        PartialEq,
-    )]
-    pub enum GivenRight {
-        /// A signer of the did account.
-        Update,
-        /// An impersonator of the did account.
-        Impersonate,
-        /// A signer that can raise disputes or partake in dispute resolution.
-        Dispute,
-    }
+    // #[derive(
+    //     DebugNoBound,
+    //     Encode,
+    //     Decode,
+    //     TypeInfo,
+    //     Clone,
+    //     MaxEncodedLen,
+    //     DecodeWithMemTracking,
+    //     PartialEq,
+    // )]
+    // pub enum GivenRight {
+    //     /// A signer of the did account.
+    //     Update,
+    //     /// An impersonator of the did account.
+    //     Impersonate,
+    //     /// A signer that can raise disputes or partake in dispute resolution.
+    //     Dispute,
+    // }
 
     #[derive(
         DebugNoBound,
@@ -114,7 +116,7 @@ pub mod pallet {
     pub type Signatories<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
-        Did<T>,
+        T::Did,
         BoundedVec<T::AccountId, T::MaxKeySize>,
         OptionQuery,
     >;
@@ -125,7 +127,7 @@ pub mod pallet {
     pub type SignatoryRights<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        Did<T>,
+        T::Did,
         Blake2_128Concat,
         T::AccountId, // AccountId of the signatory or caller
         BoundedVec<Rights<T>, T::MaxKeySize>,
@@ -135,7 +137,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn get_did_devices)]
     pub type DidDevices<T: Config> =
-        StorageMap<_, Blake2_128Concat, Did<T>, BoundedVec<T::Device, T::MaxKeySize>, OptionQuery>;
+        StorageMap<_, Blake2_128Concat, T::Did, BoundedVec<T::Device, T::MaxKeySize>, OptionQuery>;
 
     /// Pallets use events to inform users when important changes are made.
     #[pallet::event]
@@ -145,30 +147,30 @@ pub mod pallet {
         RightAdded {
             block_number: BlockNumberFor<T>,
             who: T::AccountId,
-            did: Did<T>,
+            did: T::Did,
             right: Rights<T>,
         },
         DidCreated {
             block_number: BlockNumberFor<T>,
             creator: T::AccountId,
-            did: Did<T>,
+            did: T::Did,
         },
         RightRemoved {
             block_number: BlockNumberFor<T>,
             who: T::AccountId,
-            did: Did<T>,
-            right: GivenRight,
+            did: T::Did,
+            right: T::GivenRight,
         },
         DeviceRegistered {
             block_number: BlockNumberFor<T>,
             who: T::AccountId,
-            did: Did<T>,
+            did: T::Did,
             device: T::Device,
         },
         DeviceRemoved {
             block_number: BlockNumberFor<T>,
             who: T::AccountId,
-            did: Did<T>,
+            did: T::Did,
             device: T::Device,
         }
     }
@@ -199,7 +201,7 @@ pub mod pallet {
         #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
         pub fn create_did(
             origin: OriginFor<T>,
-            did: Did<T>,
+            did: T::Did,
             signatories: BoundedVec<T::AccountId, T::MaxKeySize>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
@@ -208,10 +210,10 @@ pub mod pallet {
                 !Signatories::<T>::contains_key(&did),
                 Error::<T>::DidAlreadyExists
             );
-
+            
             // prepare Rights struct
             let r = Rights::<T> {
-                right: GivenRight::Update,
+                right: T::GivenRight::from(BaseRight::Update),
                 duration: RightDuration::Permanent,
             };
             // get existing vector or default
@@ -233,15 +235,15 @@ pub mod pallet {
         #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
         pub fn add_right_for_signatory(
             origin: OriginFor<T>,
-            did: Did<T>,
+            did: T::Did,
             target: T::AccountId,
-            right: GivenRight,
+            right: T::GivenRight,
             duration: RightDuration<T>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
             ensure!(
-                Self::is_valid_signatory(&did, &who, &GivenRight::Update),
+                Self::is_valid_signatory(&did, &who, &T::GivenRight::from(BaseRight::Update)),
                 Error::<T>::SignerDoesNotHaveRight
             );
             // prepare Rights struct
@@ -268,14 +270,14 @@ pub mod pallet {
         #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
         pub fn remove_right_for_signatory(
             origin: OriginFor<T>,
-            did: Did<T>,
+            did: T::Did,
             target: T::AccountId,
-            right: GivenRight,
+            right: T::GivenRight,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
             ensure!(
-                Self::is_valid_signatory(&did, &who, &GivenRight::Update),
+                Self::is_valid_signatory(&did, &who, &T::GivenRight::from(BaseRight::Update)),
                 Error::<T>::SignerDoesNotHaveRight
             );
 
@@ -300,12 +302,12 @@ pub mod pallet {
         #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
         pub fn register_device(
             origin: OriginFor<T>,
-            did: Did<T>,
+            did: T::Did,
             device: T::Device,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;            
             ensure!(
-                Self::is_valid_signatory(&did, &who, &GivenRight::Update),
+                Self::is_valid_signatory(&did, &who, &T::GivenRight::from(BaseRight::Update)),
                 Error::<T>::SignerDoesNotHaveRight
             );                           
             DidDevices::<T>::try_mutate(&did, |devices| -> DispatchResult {
@@ -323,10 +325,10 @@ pub mod pallet {
         
         #[pallet::call_index(4)]
         #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
-        pub fn remove_device(origin: OriginFor<T>, did: Did<T>, device: T::Device) -> DispatchResult {
+        pub fn remove_device(origin: OriginFor<T>, did: T::Did, device: T::Device) -> DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(
-                Self::is_valid_signatory(&did, &who, &GivenRight::Update),
+                Self::is_valid_signatory(&did, &who, &T::GivenRight::from(BaseRight::Update)),
                 Error::<T>::SignerDoesNotHaveRight
             );                           
             DidDevices::<T>::try_mutate(&did, |devices| -> DispatchResult {
@@ -347,7 +349,7 @@ pub mod pallet {
     }
 
     impl<T: Config> Pallet<T> {
-        pub fn is_valid_signatory(did: &Did<T>, who: &T::AccountId, right: &GivenRight) -> bool {
+        pub fn is_valid_signatory(did: &T::Did, who: &T::AccountId, right: &T::GivenRight) -> bool {
             let signer_rights = SignatoryRights::<T>::get(did, who).unwrap_or_default();
             // Get current block number
             let current_block = <frame_system::Pallet<T>>::block_number();

@@ -10047,6 +10047,7 @@ dependencies = [
  "polkadot-sdk 2503.0.1",
  "scale-info",
  "serde_json",
+ "shared",
  "smallvec",
  "substrate-wasm-builder",
 ]
