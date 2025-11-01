@@ -25,11 +25,17 @@ pub mod pallet {
 
         /// A type representing the weights required by the dispatchables of this pallet.
         type WeightInfo: crate::weights::WeightInfo;
+        type IdentityRegistry: pallet_identity_registry::Config;
     }
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
+    pub struct Content<T: Config> {
+        pub content_id: String,
+        pub exists_from: BlockNumberFor<T>,
+        //pub did : T::IdentityRegistry::Did,
+    }
 
 
     /// Pallets use events to inform users when important changes are made.

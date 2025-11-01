@@ -8497,6 +8497,7 @@ dependencies = [
 name = "pallet-content-registry"
 version = "0.1.0"
 dependencies = [
+ "pallet-identity-registry",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
