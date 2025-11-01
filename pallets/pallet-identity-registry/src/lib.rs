@@ -39,7 +39,7 @@ pub mod pallet {
 
     pub type Device<T> = BoundedVec<u8, <T as Config>::MaxStringLength>;
 
-    #[derive(DebugNoBound, Encode, Decode, TypeInfo, Clone, MaxEncodedLen)]
+    #[derive(DebugNoBound, Encode, Decode, TypeInfo, Clone, MaxEncodedLen, DecodeWithMemTracking, PartialEq)]
     #[scale_info(skip_type_params(T))]
     pub struct Rights<T: Config> {
         /// The type of right that is granted to the user.
@@ -83,7 +83,6 @@ pub mod pallet {
         Permanent,
         /// A temporary duration of the right.
         Temporary(Duration<T>),
-        
     }
 
     #[derive(
@@ -120,7 +119,7 @@ pub mod pallet {
     pub type SignatoryRights<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        Did<T>, 
+        Did<T>,
         Blake2_128Concat,
         T::AccountId, // AccountId of the signatory or caller
         BoundedVec<Rights<T>, T::MaxKeySize>,
@@ -137,10 +136,29 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// We usually use passive tense for events.
-        SomethingStored {
+        RightAdded {
             block_number: BlockNumberFor<T>,
             who: T::AccountId,
+            did: Did<T>,
+            right: Rights<T>,
         },
+        DidCreated {
+            block_number: BlockNumberFor<T>,
+            creator: T::AccountId,
+            did: Did<T>,
+        },
+        RightRemoved {
+            block_number: BlockNumberFor<T>,
+            who: T::AccountId,
+            did: Did<T>,
+            right: GivenRight,
+        },
+        DeviceRegistered {
+            block_number: BlockNumberFor<T>,
+            who: T::AccountId,
+            did: Did<T>,
+            device: Device<T>,
+        }
     }
 
     /// Errors inform users that something went wrong.
@@ -154,6 +172,10 @@ pub mod pallet {
         TooManyRights,
         /// Signer does not have the right to perform the action
         SignerDoesNotHaveRight,
+        /// DID already exists
+        DidAlreadyExists,
+        /// Too many devices for a DID
+        TooManyDevices,
     }
 
     #[pallet::hooks]
@@ -163,7 +185,42 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
         #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
-        pub fn add_right_for(
+        pub fn create_did(
+            origin: OriginFor<T>,
+            did: Did<T>,
+            signatories: BoundedVec<T::AccountId, T::MaxKeySize>,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            // ensure the DID is not already registered
+            ensure!(
+                !Signatories::<T>::contains_key(&did),
+                Error::<T>::DidAlreadyExists
+            );
+
+            // prepare Rights struct
+            let r = Rights::<T> {
+                right: GivenRight::Update,
+                duration: RightDuration::Permanent,
+            };
+            // get existing vector or default
+            let mut list: BoundedVec<Rights<T>, T::MaxKeySize> =
+                SignatoryRights::<T>::get(&did, &who).unwrap_or_default();
+            list.try_push(r).map_err(|_| Error::<T>::TooManyRights)?;
+            // store the DID
+            Signatories::<T>::insert(&did, signatories);
+            // emit event
+            Self::deposit_event(Event::DidCreated {
+                did,
+                creator: who,
+                block_number: frame_system::Pallet::<T>::block_number(),
+            });
+
+            Ok(())
+        }
+
+        #[pallet::call_index(1)]
+        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+        pub fn add_right_for_signatory(
             origin: OriginFor<T>,
             did: Did<T>,
             target: T::AccountId,
@@ -172,42 +229,111 @@ pub mod pallet {
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
-            ensure!(Self::is_valid_signatory(&did, &who, &right), Error::<T>::SignerDoesNotHaveRight);
-
+            ensure!(
+                Self::is_valid_signatory(&did, &who, &GivenRight::Update),
+                Error::<T>::SignerDoesNotHaveRight
+            );
             // prepare Rights struct
-            let r = Rights::<T> { right, duration };
+            let right = Rights::<T> { right, duration };
 
             // get existing vector or default
             let mut list: BoundedVec<Rights<T>, T::MaxKeySize> =
                 SignatoryRights::<T>::get(&did, &target).unwrap_or_default();
 
-            list.try_push(r).map_err(|_| Error::<T>::TooManyRights)?;
+            list.try_push(right.clone()).map_err(|_| Error::<T>::TooManyRights)?;
 
             SignatoryRights::<T>::insert(&did, &target, list);
 
-            Self::deposit_event(Event::SomethingStored {
+            Self::deposit_event(Event::RightAdded {
                 block_number: <frame_system::Pallet<T>>::block_number(),
                 who,
+                did,
+                right,
             });
             Ok(())
         }
+        
+        #[pallet::call_index(2)]
+        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+        pub fn remove_right_for_signatory(
+            origin: OriginFor<T>,
+            did: Did<T>,
+            target: T::AccountId,
+            right: GivenRight,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+
+            ensure!(
+                Self::is_valid_signatory(&did, &who, &GivenRight::Update),
+                Error::<T>::SignerDoesNotHaveRight
+            );
+
+            // get existing vector or default
+            let mut list: BoundedVec<Rights<T>, T::MaxKeySize> =
+                SignatoryRights::<T>::get(&did, &target).unwrap_or_default();
+
+            list.retain(|r| r.right != right);
+
+            SignatoryRights::<T>::insert(&did, &target, list);
+
+            Self::deposit_event(Event::RightRemoved {
+                block_number: <frame_system::Pallet<T>>::block_number(),
+                who,
+                did,
+                right,
+            });
+            Ok(())
+        }
+        
+        #[pallet::call_index(3)]
+        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+        pub fn register_device(
+            origin: OriginFor<T>,
+            did: Did<T>,
+            device: Device<T>,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            
+            ensure!(
+                Self::is_valid_signatory(&did, &who, &GivenRight::Update),
+                Error::<T>::SignerDoesNotHaveRight
+            );   
+                        
+            DidDevices::<T>::try_mutate(&did, |devices| -> DispatchResult {
+                devices.take().unwrap_or_default().try_push(device.clone()).map_err(|_| Error::<T>::TooManyDevices)?;
+                Ok(())
+            })?;
+            
+            Self::deposit_event(Event::DeviceRegistered {
+                block_number: <frame_system::Pallet<T>>::block_number(),
+                who,
+                did,
+                device,
+            });
+            Ok(())
+        }
+        
+        
+
+        
     }
-    
+
     impl<T: Config> Pallet<T> {
         fn is_valid_signatory(did: &Did<T>, who: &T::AccountId, right: &GivenRight) -> bool {
             let signer_rights = SignatoryRights::<T>::get(did, who).unwrap_or_default();
             // Get current block number
             let current_block = <frame_system::Pallet<T>>::block_number();
             signer_rights.iter().any(|r| {
-                r.right == *right && match r.duration {
-                    RightDuration::Permanent => true,
-                    RightDuration::Temporary(Duration { valid_from_block, valid_to_block }) => {
-                        valid_from_block <= current_block && current_block <= valid_to_block
+                r.right == *right
+                    && match r.duration {
+                        RightDuration::Permanent => true,
+                        RightDuration::Temporary(Duration {
+                            valid_from_block,
+                            valid_to_block,
+                        }) => valid_from_block <= current_block && current_block <= valid_to_block,
                     }
-                }
             })
         }
-
     }
 }
 
