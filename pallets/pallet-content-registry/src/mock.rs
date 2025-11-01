@@ -56,9 +56,14 @@ impl crate::Config for Test {
     type WeightInfo = ();
     type Device = BoundedVec<u8, ConstU32<1024>>;
     type Did = BoundedVec<u8, ConstU32<1024>>;
-    type DidRegistry = pallet_identity_registry::Pallet<Test>; 
+    type DidRegistry = pallet_identity_registry::Pallet<Test>;
     type GivenRight = BaseRight;
-    type ContentId = BoundedVec<u8, ConstU32<1024>>;
+    //type ContentId = [u8; 36];
+    type Content = [u8;32];
+    type ContentDescription = BoundedVec<u8, ConstU32<100>>;
+    type ContentType = BoundedVec<u8, ConstU32<100>>;
+    type ContentMetadata = BoundedVec<u8, ConstU32<100>>;
+    type MaxContentInVec = ConstU32<10000>;
 }
 
 // Build genesis storage according to the mock runtime.

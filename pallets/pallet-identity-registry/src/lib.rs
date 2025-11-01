@@ -8,8 +8,8 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-pub mod weights;
 pub mod impl_identity;
+pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -31,23 +31,38 @@ pub mod pallet {
         /// The maximum length of a string did
         #[pallet::constant]
         type MaxStringLength: Get<u32>;
-        
+
         type MaxKeySize: Get<u32>;
-        
+
         type Device: Parameter + Member + MaxEncodedLen + Clone + Eq + Default;
-        
+
         type Did: Parameter + Member + MaxEncodedLen + Clone + Eq + Default;
-        
-        type GivenRight: Parameter + Member + MaxEncodedLen + Clone + Eq + Default + From<BaseRight> + Into<BaseRight>;
-                
+
+        type GivenRight: Parameter
+            + Member
+            + MaxEncodedLen
+            + Clone
+            + Eq
+            + Default
+            + From<BaseRight>
+            + Into<BaseRight>;
+
         //type DidRedistry: DidManager<Self::AccountId,Did<Self>,Device<Self>>;
     }
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
-    
-    #[derive(DebugNoBound, Encode, Decode, TypeInfo, Clone, MaxEncodedLen, DecodeWithMemTracking, PartialEq)]
+    #[derive(
+        DebugNoBound,
+        Encode,
+        Decode,
+        TypeInfo,
+        Clone,
+        MaxEncodedLen,
+        DecodeWithMemTracking,
+        PartialEq,
+    )]
     #[scale_info(skip_type_params(T))]
     pub struct Rights<T: Config> {
         /// The type of right that is granted to the user.
@@ -55,25 +70,6 @@ pub mod pallet {
         /// The duration of the right that was granted to the user.
         pub(crate) duration: RightDuration<T>,
     }
-
-    // #[derive(
-    //     DebugNoBound,
-    //     Encode,
-    //     Decode,
-    //     TypeInfo,
-    //     Clone,
-    //     MaxEncodedLen,
-    //     DecodeWithMemTracking,
-    //     PartialEq,
-    // )]
-    // pub enum GivenRight {
-    //     /// A signer of the did account.
-    //     Update,
-    //     /// An impersonator of the did account.
-    //     Impersonate,
-    //     /// A signer that can raise disputes or partake in dispute resolution.
-    //     Dispute,
-    // }
 
     #[derive(
         DebugNoBound,
@@ -172,7 +168,7 @@ pub mod pallet {
             who: T::AccountId,
             did: T::Did,
             device: T::Device,
-        }
+        },
     }
 
     /// Errors inform users that something went wrong.
@@ -210,7 +206,7 @@ pub mod pallet {
                 !Signatories::<T>::contains_key(&did),
                 Error::<T>::DidAlreadyExists
             );
-            
+
             // prepare Rights struct
             let r = Rights::<T> {
                 right: T::GivenRight::from(BaseRight::Update),
@@ -253,7 +249,8 @@ pub mod pallet {
             let mut list: BoundedVec<Rights<T>, T::MaxKeySize> =
                 SignatoryRights::<T>::get(&did, &target).unwrap_or_default();
 
-            list.try_push(right.clone()).map_err(|_| Error::<T>::TooManyRights)?;
+            list.try_push(right.clone())
+                .map_err(|_| Error::<T>::TooManyRights)?;
 
             SignatoryRights::<T>::insert(&did, &target, list);
 
@@ -265,7 +262,7 @@ pub mod pallet {
             });
             Ok(())
         }
-        
+
         #[pallet::call_index(2)]
         #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
         pub fn remove_right_for_signatory(
@@ -297,7 +294,7 @@ pub mod pallet {
             });
             Ok(())
         }
-        
+
         #[pallet::call_index(3)]
         #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
         pub fn register_device(
@@ -305,15 +302,19 @@ pub mod pallet {
             did: T::Did,
             device: T::Device,
         ) -> DispatchResult {
-            let who = ensure_signed(origin)?;            
+            let who = ensure_signed(origin)?;
             ensure!(
                 Self::is_valid_signatory(&did, &who, &T::GivenRight::from(BaseRight::Update)),
                 Error::<T>::SignerDoesNotHaveRight
-            );                           
+            );
             DidDevices::<T>::try_mutate(&did, |devices| -> DispatchResult {
-                devices.take().unwrap_or_default().try_push(device.clone()).map_err(|_| Error::<T>::TooManyDevices)?;
+                devices
+                    .take()
+                    .unwrap_or_default()
+                    .try_push(device.clone())
+                    .map_err(|_| Error::<T>::TooManyDevices)?;
                 Ok(())
-            })?;        
+            })?;
             Self::deposit_event(Event::DeviceRegistered {
                 block_number: <frame_system::Pallet<T>>::block_number(),
                 who,
@@ -322,15 +323,19 @@ pub mod pallet {
             });
             Ok(())
         }
-        
+
         #[pallet::call_index(4)]
         #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
-        pub fn remove_device(origin: OriginFor<T>, did: T::Did, device: T::Device) -> DispatchResult {
+        pub fn remove_device(
+            origin: OriginFor<T>,
+            did: T::Did,
+            device: T::Device,
+        ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(
                 Self::is_valid_signatory(&did, &who, &T::GivenRight::from(BaseRight::Update)),
                 Error::<T>::SignerDoesNotHaveRight
-            );                           
+            );
             DidDevices::<T>::try_mutate(&did, |devices| -> DispatchResult {
                 devices.take().unwrap_or_default().retain(|d| d != &device);
                 Ok(())
@@ -343,9 +348,6 @@ pub mod pallet {
             });
             Ok(())
         }
-        
-
-        
     }
 
     impl<T: Config> Pallet<T> {
@@ -365,8 +367,6 @@ pub mod pallet {
             })
         }
     }
-    
-
 }
 
 // create identity

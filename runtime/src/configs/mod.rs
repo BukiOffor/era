@@ -25,10 +25,10 @@
 
 mod xcm_config;
 
+use crate::sp_runtime::BoundedVec;
 use polkadot_sdk::{staging_parachain_info as parachain_info, staging_xcm as xcm, *};
 #[cfg(not(feature = "runtime-benchmarks"))]
 use polkadot_sdk::{staging_xcm_builder as xcm_builder, staging_xcm_executor as xcm_executor};
-use crate::sp_runtime::BoundedVec;
 // Substrate and Polkadot dependencies
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
@@ -58,15 +58,15 @@ use xcm::latest::prelude::BodyId;
 
 // Local module imports
 use super::{
-    weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight}, IdentityRegistry,
+    weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
     AccountId, Aura, Balance, Balances, Block, BlockNumber, CollatorSelection, ConsensusHook, Hash,
-    MessageQueue, Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent,
-    RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session, SessionKeys,
-    System, WeightToFee, XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, EXISTENTIAL_DEPOSIT, HOURS,
-    MAXIMUM_BLOCK_WEIGHT, MICRO_UNIT, NORMAL_DISPATCH_RATIO, SLOT_DURATION, VERSION,
+    IdentityRegistry, MessageQueue, Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall,
+    RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session,
+    SessionKeys, System, WeightToFee, XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, EXISTENTIAL_DEPOSIT,
+    HOURS, MAXIMUM_BLOCK_WEIGHT, MICRO_UNIT, NORMAL_DISPATCH_RATIO, SLOT_DURATION, VERSION,
 };
-use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
 use shared::types::BaseRight;
+use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
 
 parameter_types! {
     pub const Version: RuntimeVersion = VERSION;
@@ -326,7 +326,6 @@ impl pallet_identity_registry::Config for Runtime {
     type Device = BoundedVec<u8, Self::MaxStringLength>;
     type Did = BoundedVec<u8, Self::MaxStringLength>;
     type GivenRight = BaseRight;
-    
 }
 
 /// Configure the pallet template in pallets/template.
@@ -337,7 +336,11 @@ impl pallet_content_registry::Config for Runtime {
     type Device = BoundedVec<u8, ConstU32<100>>;
     type DidRegistry = IdentityRegistry;
     type GivenRight = BaseRight;
-    type ContentId = BoundedVec<u8, ConstU32<100>>;
-    
+    //type ContentId = [u8; 36];
+    type Content = [u8; 32];
+    type ContentDescription = BoundedVec<u8, ConstU32<100>>;
+    type ContentType = BoundedVec<u8, ConstU32<100>>;
+    type ContentMetadata = BoundedVec<u8, ConstU32<100>>;
+    type MaxContentInVec = ConstU32<10000>;
 }
 // 08109649476

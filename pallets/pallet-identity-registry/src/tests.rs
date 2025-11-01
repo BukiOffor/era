@@ -4,15 +4,12 @@ use frame::testing_prelude::*;
 
 #[test]
 fn it_works_for_default_value() {
-	new_test_ext().execute_with(|| {
-	
-	});
+    new_test_ext().execute_with(|| {});
 }
 
 #[test]
 fn correct_error_for_none_value() {
-	new_test_ext().execute_with(|| {
-		// Ensure the expected error is thrown when no value is present.
-
-	});
+    new_test_ext().execute_with(|| {
+        // Ensure the expected error is thrown when no value is present.
+    });
 }
