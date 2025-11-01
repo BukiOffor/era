@@ -38,6 +38,7 @@ frame = { version = "0.9.1", default-features = false, package = "polkadot-sdk-f
 pallet-context-court = { path = "./pallets/pallet-context-court", default-features = false }
 pallet-content-registry = { path = "./pallets/pallet-content-registry", default-features = false }
 pallet-identity-registry = { path = "./pallets/pallet-identity-registry", default-features = false }
+shared = { path = "./pallets/shared", default-features = false }
 
 [profile.release]
 opt-level = 3

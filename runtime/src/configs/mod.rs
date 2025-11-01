@@ -28,7 +28,7 @@ mod xcm_config;
 use polkadot_sdk::{staging_parachain_info as parachain_info, staging_xcm as xcm, *};
 #[cfg(not(feature = "runtime-benchmarks"))]
 use polkadot_sdk::{staging_xcm_builder as xcm_builder, staging_xcm_executor as xcm_executor};
-
+use crate::sp_runtime::BoundedVec;
 // Substrate and Polkadot dependencies
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
@@ -58,7 +58,7 @@ use xcm::latest::prelude::BodyId;
 
 // Local module imports
 use super::{
-    weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
+    weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight}, IdentityRegistry,
     AccountId, Aura, Balance, Balances, Block, BlockNumber, CollatorSelection, ConsensusHook, Hash,
     MessageQueue, Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent,
     RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session, SessionKeys,
@@ -322,10 +322,15 @@ impl pallet_identity_registry::Config for Runtime {
     type WeightInfo = pallet_identity_registry::weights::SubstrateWeight<Runtime>;
     type MaxStringLength = ConstU32<100>;
     type MaxKeySize = ConstU32<100>;
+    type Device = BoundedVec<u8, Self::MaxStringLength>;
 }
 
 /// Configure the pallet template in pallets/template.
 impl pallet_content_registry::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_content_registry::weights::SubstrateWeight<Runtime>;
+    type Did = BoundedVec<u8, ConstU32<100>>;
+    type Device = BoundedVec<u8, ConstU32<100>>;
+    type DidRegistry = IdentityRegistry;
 }
+// 08109649476

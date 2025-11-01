@@ -45,12 +45,15 @@ impl pallet_identity_registry::Config for Test {
     type WeightInfo = ();
     type MaxKeySize = ConstU32<1024>;
     type MaxStringLength = ConstU32<1024>;
+    type Device = BoundedVec<u8, Self::MaxStringLength>;
 }
 
 impl crate::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type IdentityRegistry = Test;
+    type Device = BoundedVec<u8, ConstU32<1024>>;
+    type Did = BoundedVec<u8, ConstU32<1024>>;
+    type DidRegistry = pallet_identity_registry::Pallet<Test>; 
 }
 
 // Build genesis storage according to the mock runtime.

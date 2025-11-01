@@ -42,6 +42,7 @@ impl crate::Config for Test {
     type WeightInfo = ();
     type MaxStringLength = ConstU32<100>;
     type MaxKeySize = ConstU32<100>;
+    type Device = BoundedVec<u8, Self::MaxStringLength>;
 }
 
 // Build genesis storage according to the mock runtime.

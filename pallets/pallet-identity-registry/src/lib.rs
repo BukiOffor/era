@@ -9,6 +9,7 @@ mod mock;
 mod tests;
 
 pub mod weights;
+pub mod impl_identity;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -16,6 +17,7 @@ mod benchmarking;
 #[frame::pallet]
 pub mod pallet {
     use frame::prelude::*;
+    //use shared::traits::identity::DidManager;
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
@@ -28,8 +30,12 @@ pub mod pallet {
         /// The maximum length of a string did
         #[pallet::constant]
         type MaxStringLength: Get<u32>;
-
+        
         type MaxKeySize: Get<u32>;
+        
+        type Device: Parameter + Member + MaxEncodedLen + Clone + Eq + Default;
+        
+        //type DidRedistry: DidManager<Self::AccountId,Did<Self>,Device<Self>>;
     }
 
     #[pallet::pallet]
@@ -37,7 +43,7 @@ pub mod pallet {
 
     pub type Did<T> = BoundedVec<u8, <T as Config>::MaxStringLength>;
 
-    pub type Device<T> = BoundedVec<u8, <T as Config>::MaxStringLength>;
+    //pub type Device<T> = BoundedVec<u8, <T as Config>::MaxStringLength>;
 
     #[derive(DebugNoBound, Encode, Decode, TypeInfo, Clone, MaxEncodedLen, DecodeWithMemTracking, PartialEq)]
     #[scale_info(skip_type_params(T))]
@@ -129,7 +135,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn get_did_devices)]
     pub type DidDevices<T: Config> =
-        StorageMap<_, Blake2_128Concat, Did<T>, BoundedVec<Device<T>, T::MaxKeySize>, OptionQuery>;
+        StorageMap<_, Blake2_128Concat, Did<T>, BoundedVec<T::Device, T::MaxKeySize>, OptionQuery>;
 
     /// Pallets use events to inform users when important changes are made.
     #[pallet::event]
@@ -157,13 +163,13 @@ pub mod pallet {
             block_number: BlockNumberFor<T>,
             who: T::AccountId,
             did: Did<T>,
-            device: Device<T>,
+            device: T::Device,
         },
         DeviceRemoved {
             block_number: BlockNumberFor<T>,
             who: T::AccountId,
             did: Did<T>,
-            device: Device<T>,
+            device: T::Device,
         }
     }
 
@@ -220,7 +226,6 @@ pub mod pallet {
                 creator: who,
                 block_number: frame_system::Pallet::<T>::block_number(),
             });
-
             Ok(())
         }
 
@@ -296,7 +301,7 @@ pub mod pallet {
         pub fn register_device(
             origin: OriginFor<T>,
             did: Did<T>,
-            device: Device<T>,
+            device: T::Device,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;            
             ensure!(
@@ -318,7 +323,7 @@ pub mod pallet {
         
         #[pallet::call_index(4)]
         #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
-        pub fn remove_device(origin: OriginFor<T>, did: Did<T>, device: Device<T>) -> DispatchResult {
+        pub fn remove_device(origin: OriginFor<T>, did: Did<T>, device: T::Device) -> DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(
                 Self::is_valid_signatory(&did, &who, &GivenRight::Update),
@@ -342,7 +347,7 @@ pub mod pallet {
     }
 
     impl<T: Config> Pallet<T> {
-        fn is_valid_signatory(did: &Did<T>, who: &T::AccountId, right: &GivenRight) -> bool {
+        pub fn is_valid_signatory(did: &Did<T>, who: &T::AccountId, right: &GivenRight) -> bool {
             let signer_rights = SignatoryRights::<T>::get(did, who).unwrap_or_default();
             // Get current block number
             let current_block = <frame_system::Pallet<T>>::block_number();
@@ -358,6 +363,8 @@ pub mod pallet {
             })
         }
     }
+    
+
 }
 
 // create identity

@@ -17,6 +17,7 @@ mod benchmarking;
 #[frame::pallet]
 pub mod pallet {
     use frame::prelude::*;
+    use shared::traits::identity::DidManager;
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
@@ -25,17 +26,23 @@ pub mod pallet {
 
         /// A type representing the weights required by the dispatchables of this pallet.
         type WeightInfo: crate::weights::WeightInfo;
-        type IdentityRegistry: pallet_identity_registry::Config;
+        /// Type used to represent a Decentralized Identifier (DID)
+        type Did: Parameter + Member + MaxEncodedLen + Clone + Eq + Default;
+    
+        /// Type used to represent a device identifier or metadata
+        type Device: Parameter + Member + MaxEncodedLen + Clone + Eq + Default;
+          
+        type DidRegistry: DidManager<Self::AccountId, Self::Did, Self::Device>;
     }
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
-    pub struct Content<T: Config> {
-        pub content_id: String,
-        pub exists_from: BlockNumberFor<T>,
-        //pub did : T::IdentityRegistry::Did,
-    }
+    // pub struct Content<T: Config> {
+    //     pub content_id: String,
+    //     pub exists_from: BlockNumberFor<T>,
+    //     //pub did : T::IdentityRegistry::Did,
+    // }
 
 
     /// Pallets use events to inform users when important changes are made.
