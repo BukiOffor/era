@@ -158,6 +158,12 @@ pub mod pallet {
             who: T::AccountId,
             did: Did<T>,
             device: Device<T>,
+        },
+        DeviceRemoved {
+            block_number: BlockNumberFor<T>,
+            who: T::AccountId,
+            did: Did<T>,
+            device: Device<T>,
         }
     }
 
@@ -292,18 +298,15 @@ pub mod pallet {
             did: Did<T>,
             device: Device<T>,
         ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
-            
+            let who = ensure_signed(origin)?;            
             ensure!(
                 Self::is_valid_signatory(&did, &who, &GivenRight::Update),
                 Error::<T>::SignerDoesNotHaveRight
-            );   
-                        
+            );                           
             DidDevices::<T>::try_mutate(&did, |devices| -> DispatchResult {
                 devices.take().unwrap_or_default().try_push(device.clone()).map_err(|_| Error::<T>::TooManyDevices)?;
                 Ok(())
-            })?;
-            
+            })?;        
             Self::deposit_event(Event::DeviceRegistered {
                 block_number: <frame_system::Pallet<T>>::block_number(),
                 who,
@@ -313,6 +316,26 @@ pub mod pallet {
             Ok(())
         }
         
+        #[pallet::call_index(4)]
+        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+        pub fn remove_device(origin: OriginFor<T>, did: Did<T>, device: Device<T>) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            ensure!(
+                Self::is_valid_signatory(&did, &who, &GivenRight::Update),
+                Error::<T>::SignerDoesNotHaveRight
+            );                           
+            DidDevices::<T>::try_mutate(&did, |devices| -> DispatchResult {
+                devices.take().unwrap_or_default().retain(|d| d != &device);
+                Ok(())
+            })?;
+            Self::deposit_event(Event::DeviceRemoved {
+                block_number: <frame_system::Pallet<T>>::block_number(),
+                who,
+                did,
+                device,
+            });
+            Ok(())
+        }
         
 
         

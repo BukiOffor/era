@@ -323,3 +323,9 @@ impl pallet_identity_registry::Config for Runtime {
     type MaxStringLength = ConstU32<100>;
     type MaxKeySize = ConstU32<100>;
 }
+
+/// Configure the pallet template in pallets/template.
+impl pallet_content_registry::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_content_registry::weights::SubstrateWeight<Runtime>;
+}

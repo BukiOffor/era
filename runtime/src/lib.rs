@@ -316,6 +316,8 @@ mod runtime {
     // Local Pallets
     #[runtime::pallet_index(50)]
     pub type IdentityRegistry = pallet_identity_registry;
+    #[runtime::pallet_index(51)]
+    pub type ContentRegistry = pallet_content_registry;
 }
 
 #[docify::export(register_validate_block)]
