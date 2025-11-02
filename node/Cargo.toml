@@ -16,6 +16,7 @@ color-print = { workspace = true }
 docify = { workspace = true }
 futures = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
+
 log = { workspace = true, default-features = true }
 parachain-template-runtime.workspace = true
 polkadot-sdk = { workspace = true, features = ["node"] }
@@ -23,6 +24,9 @@ prometheus-endpoint.default-features = true
 prometheus-endpoint.workspace = true
 serde = { features = ["derive"], workspace = true, default-features = true }
 
+# local dependencies
+pallet-content-registry-rpc = { workspace = true, default-features = false }
+shared = { workspace = true, default-features = false }
 [build-dependencies]
 polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils"] }
 
@@ -32,6 +36,8 @@ std = [
 	"log/std",
 	"parachain-template-runtime/std",
 	"polkadot-sdk/std",
+	"pallet-content-registry-rpc/std",
+	"shared/std",
 ]
 runtime-benchmarks = [
 	"parachain-template-runtime/runtime-benchmarks",
