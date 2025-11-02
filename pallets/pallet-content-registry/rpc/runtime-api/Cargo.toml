@@ -1,0 +1,17 @@
+[package]
+name = "content-runtime-api"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+	"derive",
+] }
+
+polkadot-sdk = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"polkadot-sdk/std",
+]

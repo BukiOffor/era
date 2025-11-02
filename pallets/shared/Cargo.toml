@@ -14,11 +14,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = ["derive"], workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"], default-features = false }
 scale-info = { features = ["derive"], workspace = true }
+polkadot-sdk = { workspace = true, default-features = false, features = ["sp-std"] }
 
-sp-core = { version = "35.0.0", default-features = false }
-sp-io = { version = "39.0.0", default-features = false }
-sp-runtime = { version = "40.1.0", default-features = false }
-sp-std = { version = "14.0.0", default-features = false }
 log = "0.4.27"
 
 [features]
@@ -27,10 +24,7 @@ runtime-benchmarks = ["frame/runtime-benchmarks"]
 std = [
     "codec/std",
     "frame/std", 
-    "scale-info/std", 
-    "sp-runtime/std",
-    "sp-io/std",
-    "sp-core/std",
-    "sp-std/std",
+    "scale-info/std",
+    "polkadot-sdk/std",
     ]
 try-runtime = ["frame/try-runtime"]

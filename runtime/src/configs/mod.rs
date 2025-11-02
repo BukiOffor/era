@@ -323,8 +323,8 @@ impl pallet_identity_registry::Config for Runtime {
     type WeightInfo = pallet_identity_registry::weights::SubstrateWeight<Runtime>;
     type MaxStringLength = ConstU32<100>;
     type MaxKeySize = ConstU32<100>;
-    type Device = BoundedVec<u8, Self::MaxStringLength>;
-    type Did = BoundedVec<u8, Self::MaxStringLength>;
+    type Device = super::Device;
+    type Did = super::Did;
     type GivenRight = BaseRight;
 }
 
@@ -337,7 +337,7 @@ impl pallet_content_registry::Config for Runtime {
     type DidRegistry = IdentityRegistry;
     type GivenRight = BaseRight;
     //type ContentId = [u8; 36];
-    type Content = [u8; 32];
+    type Content = super::Content;
     type ContentDescription = BoundedVec<u8, ConstU32<100>>;
     type ContentType = BoundedVec<u8, ConstU32<100>>;
     type ContentMetadata = BoundedVec<u8, ConstU32<100>>;

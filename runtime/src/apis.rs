@@ -67,6 +67,17 @@ impl Runtime {
 }
 
 impl_runtime_apis! {
+    impl content_runtime_api::PalletContentRegistryApi<
+              Block,
+              AccountId,
+               // RuntimeApiTypes::ContentId,
+               // RuntimeApiTypes::Content
+           > for Runtime {
+               fn check_proof_of_reality(content_id: AccountId) -> bool {
+                   //pallet_content_registry::Pallet::<Runtime>::get_content(content_id).is_some()
+                   true
+               }
+        }
     impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
         fn slot_duration() -> sp_consensus_aura::SlotDuration {
             Runtime::impl_slot_duration()
@@ -311,5 +322,6 @@ impl_runtime_apis! {
         fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
             crate::genesis_config_presets::preset_names()
         }
+        
     }
 }

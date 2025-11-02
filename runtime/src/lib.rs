@@ -36,7 +36,9 @@ use frame_support::weights::{
 pub use genesis_config_presets::PARACHAIN_ID;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-
+use crate::polkadot_sdk_frame::runtime::prelude::BoundedVec;
+use crate::sp_core::ConstU32;
+     
 use weights::ExtrinsicBaseWeight;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
@@ -72,6 +74,14 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
+
+////////////////////////////////////////////////////////////////////////// My TYPES //////////////////////////////////////////////////////////////////////////
+/// The Did of the user
+pub type Did = BoundedVec<u8, ConstU32<100>>;
+/// The Device of the user
+pub type Device = BoundedVec<u8, ConstU32<100>>;
+/// The Content of the User
+pub type Content = [u8; 32];
 
 /// The extension to the basic transaction logic.
 #[docify::export(template_signed_extra)]

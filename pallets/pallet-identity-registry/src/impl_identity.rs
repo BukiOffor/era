@@ -1,7 +1,7 @@
 use super::*;
 use frame::prelude::*;
 use shared::traits::identity::DidManager;
-use sp_std::vec::Vec;
+use polkadot_sdk::sp_std::vec::Vec;
 
 impl<T: Config> DidManager<T::AccountId, T::Did, T::Device, T::GivenRight> for Pallet<T> {
     type Error = DispatchError;

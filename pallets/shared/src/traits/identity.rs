@@ -1,4 +1,4 @@
-use sp_std::vec::Vec;
+use polkadot_sdk::sp_std::vec::Vec;
 
 pub trait DidManager<AccountId, Did, Device, Right> {
     type Error;

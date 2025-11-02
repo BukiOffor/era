@@ -10,8 +10,11 @@ default-members = ["pallets/*", "runtime"]
 members = [
     "node",
     "pallets/*",
+    "pallets/pallet-content-registry/rpc",
+    "pallets/pallet-content-registry/rpc/runtime-api",
     "runtime",
 ]
+
 resolver = "2"
 
 [workspace.dependencies]
@@ -39,6 +42,8 @@ pallet-context-court = { path = "./pallets/pallet-context-court", default-featur
 pallet-content-registry = { path = "./pallets/pallet-content-registry", default-features = false }
 pallet-identity-registry = { path = "./pallets/pallet-identity-registry", default-features = false }
 shared = { path = "./pallets/shared", default-features = false }
+pallet-content-registry-rpc = { path = "./pallets/pallet-content-registry/rpc", default-features = false }
+content-runtime-api  =  {path = "./pallets/pallet-content-registry/rpc/runtime-api", default-features = false}
 
 [profile.release]
 opt-level = 3

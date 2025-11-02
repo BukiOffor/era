@@ -17,7 +17,8 @@ mod benchmarking;
 pub mod pallet {
     use frame::prelude::{OptionQuery, ValueQuery, *};
     use shared::traits::identity::DidManager;
-    use shared::types::BaseRight;
+    use shared::types::{BaseRight, ContentId};
+    
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
@@ -61,24 +62,24 @@ pub mod pallet {
     #[pallet::pallet]
     pub struct Pallet<T>(_);
     
-    #[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo, MaxEncodedLen, Debug, DecodeWithMemTracking)]
-    pub struct ContentId {
-        prefix: [u8; 4],   
-        hash: [u8; 32],    
-    }
+    // #[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo, MaxEncodedLen, Debug, DecodeWithMemTracking)]
+    // pub struct ContentId {
+    //     prefix: [u8; 4],   
+    //     hash: [u8; 32],    
+    // }
     
-    impl ContentId {
-        pub fn new(prefix: &[u8], hash: &[u8]) -> Self {
-            let mut content_id = ContentId::default();
-            content_id.prefix.copy_from_slice(prefix);
-            content_id.hash.copy_from_slice(hash);
-            content_id
-        }
-    }
+    // impl ContentId {
+    //     pub fn new(prefix: &[u8], hash: &[u8]) -> Self {
+    //         let mut content_id = ContentId::default();
+    //         content_id.prefix.copy_from_slice(prefix);
+    //         content_id.hash.copy_from_slice(hash);
+    //         content_id
+    //     }
+    // }
 
     #[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Eq, Clone, MaxEncodedLen)]
     #[scale_info(skip_type_params(T))]
-    pub struct Content<T: Config> {
+    pub struct Proof<T: Config> {
         pub content_id: ContentId,
         pub exists_from: BlockNumberFor<T>,
         pub did: T::Did,
@@ -114,7 +115,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn get_content)]
-    pub type Contents<T: Config> = StorageMap<_, Blake2_128Concat, ContentId, Content<T>, OptionQuery>;
+    pub type Proofs<T: Config> = StorageMap<_, Blake2_128Concat, ContentId, Proof<T>, OptionQuery>;
 
     /// Pallets use events to inform users when important changes are made.
     /// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#event-and-error>
@@ -185,8 +186,8 @@ pub mod pallet {
             let hash = blake2_256(&content.encode());           
             let content_id = ContentId::new(prefix, &hash);
             
-            ensure!(!Contents::<T>::contains_key(&content_id), Error::<T>::ContentAlreadyExists);
-            let ctx = Content::<T> {
+            ensure!(!Proofs::<T>::contains_key(&content_id), Error::<T>::ContentAlreadyExists);
+                let ctx = Proof::<T> {
                 content_id: content_id.clone(),
                 signer: who.clone(),
                 content: content.clone(),
@@ -197,7 +198,7 @@ pub mod pallet {
                 content_metadata,
                 exists_from: frame_system::Pallet::<T>::block_number(),
             };
-            Contents::<T>::insert(&content_id, &ctx);
+            Proofs::<T>::insert(&content_id, &ctx);
             DidContentExists::<T>::insert(&did, &content_id, true);
             DidContents::<T>::try_mutate(&did, |contents| -> DispatchResult {
                 contents.try_push(content_id.clone()).map_err(|_| Error::<T>::CouldNotPushContent)?;
