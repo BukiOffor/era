@@ -148,7 +148,9 @@ pub mod pallet {
         /// Content already exists
         ContentAlreadyExists,
         /// Could not push content
-        CouldNotPushContent
+        CouldNotPushContent,
+        /// Device not owned
+        DeviceNotOwned,
     }
 
     #[pallet::hooks]
@@ -176,6 +178,9 @@ pub mod pallet {
             )
             .map_err(|_| Error::<T>::CouldNotGetResponse)?;
             ensure!(is_valid, Error::<T>::SignerDoesNotHaveRight);
+            
+            let owned_devices = <T as Config>::DidRegistry::read_did_devices(&did).map_err(|_| Error::<T>::CouldNotGetResponse)?;
+            ensure!(owned_devices.contains(&device), Error::<T>::DeviceNotOwned);
             let prefix = b"cid:".as_slice();
             let hash = blake2_256(&content.encode());           
             let content_id = ContentId::new(prefix, &hash);
