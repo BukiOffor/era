@@ -18,7 +18,6 @@ pub mod pallet {
     use frame::prelude::{OptionQuery, ValueQuery, *};
     use shared::traits::identity::DidManager;
     use shared::types::{BaseRight, ContentId};
-    
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
@@ -61,13 +60,13 @@ pub mod pallet {
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
-    
+
     // #[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo, MaxEncodedLen, Debug, DecodeWithMemTracking)]
     // pub struct ContentId {
-    //     prefix: [u8; 4],   
-    //     hash: [u8; 32],    
+    //     prefix: [u8; 4],
+    //     hash: [u8; 32],
     // }
-    
+
     // impl ContentId {
     //     pub fn new(prefix: &[u8], hash: &[u8]) -> Self {
     //         let mut content_id = ContentId::default();
@@ -90,7 +89,6 @@ pub mod pallet {
         pub content_metadata: T::ContentMetadata,
         pub device: T::Device,
     }
-    
 
     // hash of the content is the content_id, so we can check if it exists
     // did -> cid -> bool
@@ -159,7 +157,6 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        
         #[pallet::call_index(0)]
         #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(5))]
         pub fn create_content(
@@ -179,15 +176,19 @@ pub mod pallet {
             )
             .map_err(|_| Error::<T>::CouldNotGetResponse)?;
             ensure!(is_valid, Error::<T>::SignerDoesNotHaveRight);
-            
-            let owned_devices = <T as Config>::DidRegistry::read_did_devices(&did).map_err(|_| Error::<T>::CouldNotGetResponse)?;
+
+            let owned_devices = <T as Config>::DidRegistry::read_did_devices(&did)
+                .map_err(|_| Error::<T>::CouldNotGetResponse)?;
             ensure!(owned_devices.contains(&device), Error::<T>::DeviceNotOwned);
             let prefix = b"cid:".as_slice();
-            let hash = blake2_256(&content.encode());           
+            let hash = blake2_256(&content.encode());
             let content_id = ContentId::new(prefix, &hash);
-            
-            ensure!(!Proofs::<T>::contains_key(&content_id), Error::<T>::ContentAlreadyExists);
-                let ctx = Proof::<T> {
+
+            ensure!(
+                !Proofs::<T>::contains_key(&content_id),
+                Error::<T>::ContentAlreadyExists
+            );
+            let ctx = Proof::<T> {
                 content_id: content_id.clone(),
                 signer: who.clone(),
                 content: content.clone(),
@@ -201,10 +202,12 @@ pub mod pallet {
             Proofs::<T>::insert(&content_id, &ctx);
             DidContentExists::<T>::insert(&did, &content_id, true);
             DidContents::<T>::try_mutate(&did, |contents| -> DispatchResult {
-                contents.try_push(content_id.clone()).map_err(|_| Error::<T>::CouldNotPushContent)?;
+                contents
+                    .try_push(content_id.clone())
+                    .map_err(|_| Error::<T>::CouldNotPushContent)?;
                 Ok(())
             })?;
-                        
+
             Self::deposit_event(Event::ContentStored {
                 block_number: <frame_system::Pallet<T>>::block_number(),
                 who,

@@ -1,21 +1,52 @@
+# [relaychain]
+# default_command = "polkadot"
+# chain = "rococo-local"
+
+# [[relaychain.nodes]]
+# name = "alice"
+# validator = true
+# ws_port = 9944
+
+# [[relaychain.nodes]]
+# name = "bob"
+# validator = true
+# ws_port = 9955
+
+# [[parachains]]
+# id = 1000
+
+# [parachains.collator]
+# name = "charlie"
+# ws_port = 9988
+# command = "parachain-template-node"
+
+# The setup bellow allows only one node to produce
+# blocks and the rest will follow.
+
 [relaychain]
-default_command = "polkadot"
-chain = "rococo-local"
+chain = "dev"
+default_command = "parachain-template-node"
 
 [[relaychain.nodes]]
 name = "alice"
+args = ["--consensus manual-seal-3000"]
 validator = true
 ws_port = 9944
 
 [[relaychain.nodes]]
 name = "bob"
+args = ["--consensus None"]
 validator = true
 ws_port = 9955
 
-[[parachains]]
-id = 1000
-
-[parachains.collator]
+[[relaychain.nodes]]
 name = "charlie"
-ws_port = 9988
-command = "parachain-template-node"
+args = ["--consensus None"]
+validator = true
+ws_port = 9966
+
+[[relaychain.nodes]]
+name = "dave"
+args = ["--consensus None"]
+validator = true
+ws_port = 9977

@@ -8531,9 +8531,11 @@ dependencies = [
 name = "pallet-context-court"
 version = "0.1.0"
 dependencies = [
+ "pallet-identity-registry",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
+ "shared",
 ]
 
 [[package]]
@@ -15495,6 +15497,7 @@ dependencies = [
 name = "shared"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "log",
  "parity-scale-codec",
  "polkadot-sdk 2503.0.1",

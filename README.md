@@ -263,3 +263,6 @@ relay chain network (see [Parachain Template node](#parachain-template-node) set
   [Substrate StackExchange](https://substrate.stackexchange.com/).
 - 👥You can also reach out on the [Official Polkdot discord server](https://polkadot-discord.w3f.tools/)
 - 🧑Reach out on [Telegram](https://t.me/substratedevs) for more questions and discussions
+
+
+// ./target/release/parachain-template-node --chain ./chain_spec.json --dev

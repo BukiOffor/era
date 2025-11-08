@@ -33,6 +33,7 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_aura::Authorities;
+use shared::types::ContentId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -69,13 +70,12 @@ impl Runtime {
 impl_runtime_apis! {
     impl content_runtime_api::PalletContentRegistryApi<
               Block,
-              AccountId,
+              ContentId,
                // RuntimeApiTypes::ContentId,
                // RuntimeApiTypes::Content
            > for Runtime {
-               fn check_proof_of_reality(content_id: AccountId) -> bool {
-                   //pallet_content_registry::Pallet::<Runtime>::get_content(content_id).is_some()
-                   true
+               fn check_proof_of_reality(content_id: ContentId) -> bool {
+                   pallet_content_registry::Pallet::<Runtime>::get_content(content_id).is_some()
                }
         }
     impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
@@ -322,6 +322,6 @@ impl_runtime_apis! {
         fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
             crate::genesis_config_presets::preset_names()
         }
-        
+
     }
 }

@@ -29,6 +29,8 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+use crate::polkadot_sdk_frame::runtime::prelude::BoundedVec;
+use crate::sp_core::ConstU32;
 use frame_support::weights::{
     constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
     WeightToFeePolynomial,
@@ -36,9 +38,7 @@ use frame_support::weights::{
 pub use genesis_config_presets::PARACHAIN_ID;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use crate::polkadot_sdk_frame::runtime::prelude::BoundedVec;
-use crate::sp_core::ConstU32;
-     
+
 use weights::ExtrinsicBaseWeight;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.

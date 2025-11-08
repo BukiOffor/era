@@ -37,6 +37,8 @@ smallvec = { version = "1.11.0", default-features = false }
 substrate-wasm-builder = { version = "26.0.1", default-features = false }
 frame = { version = "0.9.1", default-features = false, package = "polkadot-sdk-frame" }
 
+hex = { version = "0.4", default-features = false }  
+
 # Local Pallets
 pallet-context-court = { path = "./pallets/pallet-context-court", default-features = false }
 pallet-content-registry = { path = "./pallets/pallet-content-registry", default-features = false }

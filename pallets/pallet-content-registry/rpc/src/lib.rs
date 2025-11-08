@@ -78,18 +78,12 @@
 //     .into()
 // }
 
-
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use polkadot_sdk::*;
 use codec::Codec;
 pub use content_runtime_api::PalletContentRegistryApi as ContentRegistryApi;
-use jsonrpsee::{
-    core::{RpcResult},
-    proc_macros::rpc,
-    types::error::{ErrorObject},
-};
+use jsonrpsee::{core::RpcResult, proc_macros::rpc, types::error::ErrorObject};
+use polkadot_sdk::*;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
@@ -104,7 +98,7 @@ pub struct Custom {
 #[rpc(client, server)]
 pub trait PalletContentRegistryApi<BlockHash, ContentId: Codec> {
     /// get the number of accounts that have approved a particular call hash
-    #[method(name = "multi_NumberOfAccountsHasApprovedCall")]
+    #[method(name = "content_CheckProofOfReality")]
     fn check_proof_of_reality(&self, id: ContentId, at: Option<BlockHash>) -> RpcResult<bool>;
 }
 
@@ -126,11 +120,10 @@ impl<C, Block> PalletContentRegistry<C, Block> {
     }
 }
 
-impl<C, Block, ContentId: Codec,>
-    PalletContentRegistryApiServer<<Block as BlockT>::Hash, ContentId>
+impl<C, Block, ContentId: Codec> PalletContentRegistryApiServer<<Block as BlockT>::Hash, ContentId>
     for PalletContentRegistry<C, Block>
 where
-    Block: BlockT ,
+    Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
     C::Api: ContentRegistryApi<Block, ContentId>,
 {
@@ -152,9 +145,5 @@ const RUNTIME_ERROR: i32 = 1;
 
 /// Converts a runtime trap into an RPC error.
 fn runtime_error_into_rpc_err<'a>(err: impl std::fmt::Debug) -> ErrorObject<'a> {
-   ErrorObject::owned(
-        RUNTIME_ERROR,
-        "Runtime error",
-        Some(format!("{:?}", err)),
-    )
+    ErrorObject::owned(RUNTIME_ERROR, "Runtime error", Some(format!("{:?}", err)))
 }

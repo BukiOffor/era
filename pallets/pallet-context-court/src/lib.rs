@@ -1,50 +1,3 @@
-//! # Template Pallet
-//!
-//! A pallet with minimal functionality to help developers understand the essential components of
-//! writing a FRAME pallet. It is typically used in beginner tutorials or in Polkadot SDK template
-//! as a starting point for creating a new pallet and **not meant to be used in production**.
-//!
-//! ## Overview
-//!
-//! This template pallet contains basic examples of:
-//! - declaring a storage item that stores a single block-number
-//! - declaring and using events
-//! - declaring and using errors
-//! - a dispatchable function that allows a user to set a new value to storage and emits an event
-//!   upon success
-//! - another dispatchable function that causes a custom error to be thrown
-//!
-//! Each pallet section is annotated with an attribute using the `#[pallet::...]` procedural macro.
-//! This macro generates the necessary code for a pallet to be aggregated into a FRAME runtime.
-//!
-//! To get started with pallet development, consider using this tutorial:
-//!
-//! <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html>
-//!
-//! And reading the main documentation of the `frame` crate:
-//!
-//! <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html>
-//!
-//! And looking at the frame [`kitchen-sink`](https://paritytech.github.io/polkadot-sdk/master/pallet_example_kitchensink/index.html)
-//! pallet, a showcase of all pallet macros.
-//!
-//! ### Pallet Sections
-//!
-//! The pallet sections in this template are:
-//!
-//! - A **configuration trait** that defines the types and parameters which the pallet depends on
-//!   (denoted by the `#[pallet::config]` attribute). See: [`Config`].
-//! - A **means to store pallet-specific data** (denoted by the `#[pallet::storage]` attribute).
-//!   See: [`storage_types`].
-//! - A **declaration of the events** this pallet emits (denoted by the `#[pallet::event]`
-//!   attribute). See: [`Event`].
-//! - A **declaration of the errors** that this pallet can throw (denoted by the `#[pallet::error]`
-//!   attribute). See: [`Error`].
-//! - A **set of dispatchable functions** that define the pallet's functionality (denoted by the
-//!   `#[pallet::call]` attribute). See: [`dispatchables`].
-//!
-//! Run `cargo doc --package pallet-template --open` to view this pallet's documentation.
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
@@ -60,15 +13,20 @@ pub mod weights;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html>
-// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html>
-//
-// To see a full list of `pallet` macros and their use cases, see:
-// <https://paritytech.github.io/polkadot-sdk/master/pallet_example_kitchensink/index.html>
-// <https://paritytech.github.io/polkadot-sdk/master/frame_support/pallet_macros/index.html>
 #[frame::pallet]
 pub mod pallet {
-    use frame::prelude::*;
+    use frame::prelude::{
+        fungible::{Inspect, InspectHold, Mutate, MutateHold},
+        *,
+    };
+    use shared::traits::identity::DidManager;
+    use shared::types::{BaseRight, ContentId};
+    
+
+    /// Define the type for balance used in the pallet.
+    type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
+        <T as frame_system::Config>::AccountId,
+    >>::Balance;
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
@@ -77,27 +35,121 @@ pub mod pallet {
 
         /// A type representing the weights required by the dispatchables of this pallet.
         type WeightInfo: crate::weights::WeightInfo;
+
+        type GivenRight: Parameter
+            + Member
+            + MaxEncodedLen
+            + Clone
+            + Eq
+            + Default
+            + From<BaseRight>
+            + Into<BaseRight>;
+
+        type NativeBalance: fungible::Inspect<Self::AccountId>
+            + fungible::Mutate<Self::AccountId>
+            + fungible::hold::Inspect<Self::AccountId, Reason = Self::RuntimeHoldReason>
+            + fungible::hold::Mutate<Self::AccountId>
+            + fungible::freeze::Inspect<Self::AccountId>
+            + fungible::freeze::Mutate<Self::AccountId>;
+
+        /// Reason for holding funds.
+        type RuntimeHoldReason: From<HoldReason>;
+
+        type Did: Parameter + Member + MaxEncodedLen + Clone + Eq + Default;
+
+        type Device: Parameter + Member + MaxEncodedLen + Clone + Eq + Default;
+
+        type DidRegistry: DidManager<Self::AccountId, Self::Did, Self::Device, Self::GivenRight>;
+
+        type MaxJurors: Get<u32>;
+
+        type MaxJurorsPerDispute: Get<u32>;
+
+        type HoldAmount: Get<BalanceOf<Self>>;
+
+        type SlashAmount: Get<BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
-    /// A struct to store a single block-number. Has all the right derives to store it in storage.
-    /// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_storage_derives/index.html>
-    #[derive(
-        Encode, Decode, MaxEncodedLen, TypeInfo, CloneNoBound, PartialEqNoBound, DefaultNoBound,
-    )]
-    #[scale_info(skip_type_params(T))]
-    pub struct CompositeStruct<T: Config> {
-        /// A block number.
-        pub(crate) block_number: BlockNumberFor<T>,
+    /// Enum representing reasons for holding funds.
+    #[pallet::composite_enum]
+    #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+    pub enum HoldReason {
+        #[codec(index = 0)]
+        JurorAccountCreation,
+        #[codec(index = 1)]
+        CallCreation,
     }
 
-    /// The pallet's storage items.
-    /// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#storage>
-    /// <https://paritytech.github.io/polkadot-sdk/master/frame_support/pallet_macros/attr.storage.html>
     #[pallet::storage]
-    pub type Something<T: Config> = StorageValue<_, CompositeStruct<T>>;
+    #[pallet::getter(fn jurors)]
+    pub type Jurors<T: Config> = StorageValue<_, BoundedVec<T::Did, T::MaxJurors>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_juror_native_account)]
+    pub type JurorNativeAccountAdmin<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::Did, T::AccountId, OptionQuery>;
+
+    // dispute -> jurors
+    #[pallet::storage]
+    #[pallet::getter(fn get_dispute)]
+    pub type Dispute<T: Config> =
+        StorageMap<_, Blake2_128Concat, ContentId, CourtSession<T>, OptionQuery>;
+
+    #[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Clone, MaxEncodedLen)]
+    #[scale_info(skip_type_params(T))]
+    pub struct CourtSession<T: Config> {
+        pub jurors: BoundedVec<T::Did, T::MaxJurorsPerDispute>,
+        pub started_at: BlockNumberFor<T>,
+        pub ended_at: BlockNumberFor<T>,
+        pub verdict: Verdict<T>,
+    }
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_escalated_dispute)]
+    pub type EscalatedSession<T: Config> =
+        StorageMap<_, Blake2_128Concat, ContentId, Escalated<T>, OptionQuery>;
+
+    #[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Clone, MaxEncodedLen)]
+    #[scale_info(skip_type_params(T))]
+    pub struct Verdict<T: Config> {
+        pub escalated: bool,
+        pub decision: Decision,
+        pub votes: BoundedVec<VoteRegistry<T>, T::MaxJurorsPerDispute>,
+        pub rewarded_and_slashed: bool,
+    }
+
+    #[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Eq, Clone, MaxEncodedLen, Default)]
+    pub enum Decision {
+        Convict,
+        Acquittal,
+        #[default]
+        Pending,
+    }
+
+    #[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Eq, Clone, MaxEncodedLen)]
+    pub enum Vote {
+        Yay,
+        Nay,
+        Abstain,
+    }
+    #[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Eq, Clone, MaxEncodedLen)]
+    #[scale_info(skip_type_params(T))]
+    pub struct VoteRegistry<T: Config> {
+        pub juror: T::Did,
+        pub vote: Vote,
+    }
+
+    #[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Eq, Clone, MaxEncodedLen)]
+    #[scale_info(skip_type_params(T))]
+    pub struct Escalated<T: Config> {
+        pub escalated_at: BlockNumberFor<T>,
+        pub decision_at: BlockNumberFor<T>,
+        pub decision: Decision,
+        pub votes: BoundedVec<VoteRegistry<T>, T::MaxJurors>,
+    }
 
     /// Pallets use events to inform users when important changes are made.
     /// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#event-and-error>
@@ -109,77 +161,87 @@ pub mod pallet {
             block_number: BlockNumberFor<T>,
             who: T::AccountId,
         },
+        JurorRegistered{
+            block_number: BlockNumberFor<T>,
+            did : T::Did,
+            admin: T::AccountId,
+        }
     }
 
-    /// Errors inform users that something went wrong.
-    /// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#event-and-error>
     #[pallet::error]
     pub enum Error<T> {
         /// Error names should be descriptive.
         NoneValue,
         /// Errors should have helpful documentation associated with them.
         StorageOverflow,
+        /// Signer does not have the right to perform the action
+        SignerDoesNotHaveRight,
+        /// Could not get response from trait
+        CouldNotGetResponse,
+        /// DidAlreadyExists
+        DidAlreadyExists,
     }
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
-    /// Dispatchable functions allows users to interact with the pallet and invoke state changes.
-    /// These functions materialize as "extrinsics", which are often compared to transactions.
-    /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
-    /// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#dispatchables>
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// An example dispatchable that takes a singles value as a parameter, writes the value to
-        /// storage and emits an event. This function must be dispatched by a signed extrinsic.
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(1))]
-        pub fn do_something(origin: OriginFor<T>, bn: u32) -> DispatchResultWithPostInfo {
-            // Check that the extrinsic was signed and get the signer.
-            // This function will return an error if the extrinsic is not signed.
-            // <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_origin/index.html>
+        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+        pub fn register_did_for_juror(origin: OriginFor<T>, did: T::Did) -> DispatchResult {
             let who = ensure_signed(origin)?;
+            let is_valid = <T as Config>::DidRegistry::is_signer_valid(
+                &who,
+                &did,
+                &T::GivenRight::from(BaseRight::Dispute),
+            )
+            .map_err(|_| Error::<T>::CouldNotGetResponse)?;
+            
+            ensure!(is_valid, Error::<T>::SignerDoesNotHaveRight);
+            let mut jurors = <Jurors<T>>::get();
+            ensure!(!jurors.contains(&did), Error::<T>::DidAlreadyExists);
+            
+            jurors
+                .try_push(did.clone())
+                .map_err(|_| Error::<T>::StorageOverflow)?;
 
-            // Convert the u32 into a block number. This is possible because the set of trait bounds
-            // defined in [`frame_system::Config::BlockNumber`].
-            let block_number: BlockNumberFor<T> = bn.into();
-
-            // Update storage.
-            <Something<T>>::put(CompositeStruct { block_number });
-
-            // Emit an event.
-            Self::deposit_event(Event::SomethingStored { block_number, who });
-
-            // Return a successful [`DispatchResultWithPostInfo`] or [`DispatchResult`].
-            Ok(().into())
-        }
-
-        /// An example dispatchable that may throw a custom error.
-        #[pallet::call_index(1)]
-        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().reads_writes(1,1))]
-        pub fn cause_error(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            let _who = ensure_signed(origin)?;
-
-            // Read a value from storage.
-            match <Something<T>>::get() {
-                // Return an error if the value has not been set.
-                None => Err(Error::<T>::NoneValue)?,
-                Some(mut old) => {
-                    // Increment the value read from storage; will error in the event of overflow.
-                    old.block_number = old
-                        .block_number
-                        .checked_add(&One::one())
-                        // ^^ equivalent is to:
-                        // .checked_add(&1u32.into())
-                        // both of which build a `One` instance for the type `BlockNumber`.
-                        .ok_or(Error::<T>::StorageOverflow)?;
-                    // Update the value in storage with the incremented result.
-                    <Something<T>>::put(old);
-                    // Explore how you can rewrite this using
-                    // [`frame_support::storage::StorageValue::mutate`].
-                    Ok(().into())
-                }
-            }
+            <Jurors<T>>::set(jurors);
+            // Hold the deposit.
+            <T as Config>::NativeBalance::hold(
+                &HoldReason::JurorAccountCreation.into(),
+                &who,
+                T::HoldAmount::get(),
+            )?;
+            Self::deposit_event(Event::JurorRegistered{
+                block_number: <frame_system::Pallet<T>>::block_number(),
+                admin: who,
+                did
+            });
+            Ok(())
         }
     }
+
+    // impl<T: Config> Pallet<T> {
+
+    // }
 }
+
+// user raises a dispute
+// calls for a panel vote ->
+//  - create or summon jurors
+//  - allow jurors to delibrate and vote
+//  - at the end of voting period slash the offender.
+// add reputation to identity pallet
+//
+//
+// a set of all registered jurors
+// if dispute open pot for a number of jurors to register to resolve dispute
+// if number of jurors is reached, begin voting period
+// voting period depends on the severity of the dispute
+// if 80% of verdict is not reached, involve all the jurors
+// default to 70% for all juror voting
+//
+// slash offender and slash jurors that voted against the verdict
+//
+// if dispute is resolved, reward jurors

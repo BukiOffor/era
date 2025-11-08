@@ -7,8 +7,8 @@
 
 use std::sync::Arc;
 
-use parachain_template_runtime::{opaque::Block, AccountId, Balance, Nonce, Did, Content};
-use shared::types::{ContentId};
+use parachain_template_runtime::{opaque::Block, AccountId, Balance, Content, Did, Nonce};
+use shared::types::ContentId;
 
 use polkadot_sdk::*;
 
@@ -42,15 +42,15 @@ where
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
     C::Api: BlockBuilder<Block>,
-    C::Api: pallet_content_registry_rpc::ContentRegistryApi<Block, AccountId>,
+    C::Api: pallet_content_registry_rpc::ContentRegistryApi<Block, ContentId>,
     P: TransactionPool + Sync + Send + 'static,
 {
+    use pallet_content_registry_rpc::{PalletContentRegistry, PalletContentRegistryApiServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
-    use pallet_content_registry_rpc::{PalletContentRegistry, PalletContentRegistryApiServer};
 
     let mut module = RpcExtension::new(());
-    
+
     let FullDeps { client, pool } = deps;
 
     module.merge(System::new(client.clone(), pool).into_rpc())?;

@@ -18,6 +18,8 @@ polkadot-sdk = { workspace = true, default-features = false, features = ["sp-std
 
 log = "0.4.27"
 
+hex = { workspace = true, default-features = false }  
+
 [features]
 default = ["std"]
 runtime-benchmarks = ["frame/runtime-benchmarks"]
