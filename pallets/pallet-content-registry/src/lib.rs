@@ -19,6 +19,9 @@ pub mod pallet {
     use shared::traits::identity::DidManager;
     use shared::types::{BaseRight, ContentId};
 
+    
+
+
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config: frame_system::Config {
@@ -52,10 +55,13 @@ pub mod pallet {
             + Encode
             + Decode
             + TypeInfo;
+            
+
         //type ContentId: Parameter + Member + MaxEncodedLen + Clone + Eq ;
         type ContentType: Parameter + Member + MaxEncodedLen + Clone + Eq;
         type ContentDescription: Parameter + Member + MaxEncodedLen + Clone + Eq;
         type ContentMetadata: Parameter + Member + MaxEncodedLen + Clone + Eq;
+
     }
 
     #[pallet::pallet]
@@ -75,6 +81,15 @@ pub mod pallet {
     //         content_id
     //     }
     // }
+
+    #[pallet::composite_enum]
+    #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+    pub enum HoldReason {
+        #[codec(index = 0)]
+        JurorAccountCreation,
+        #[codec(index = 1)]
+        CallCreation,
+    }
 
     #[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Eq, Clone, MaxEncodedLen)]
     #[scale_info(skip_type_params(T))]

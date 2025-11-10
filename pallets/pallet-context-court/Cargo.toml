@@ -18,9 +18,10 @@ frame = { workspace = true, features = ["experimental", "runtime"], default-feat
 scale-info = { features = ["derive"], workspace = true }
 shared = {workspace = true}
 pallet-identity-registry = { workspace = true }
+polkadot-sdk = { workspace = true, features = ["pallet-insecure-randomness-collective-flip", "frame-support"] }
 
 [features]
 default = ["std"]
 runtime-benchmarks = ["frame/runtime-benchmarks"]
-std = ["codec/std", "frame/std", "scale-info/std", "shared/std", "pallet-identity-registry/std"]
+std = ["codec/std", "frame/std", "scale-info/std", "shared/std", "pallet-identity-registry/std", "polkadot-sdk/std"]
 try-runtime = ["frame/try-runtime"]

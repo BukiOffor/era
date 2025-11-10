@@ -19,9 +19,12 @@ pub mod pallet {
         fungible::{Inspect, InspectHold, Mutate, MutateHold},
         *,
     };
-    use shared::traits::identity::DidManager;
-    use shared::types::{BaseRight, ContentId};
-    
+    use polkadot_sdk::frame_support::traits::Randomness;
+    use polkadot_sdk::pallet_insecure_randomness_collective_flip as insecure_randomness;
+    use shared::{
+        traits::identity::DidManager,
+        types::{BaseRight, ContentId},
+    };
 
     /// Define the type for balance used in the pallet.
     type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
@@ -30,7 +33,7 @@ pub mod pallet {
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config: frame_system::Config + insecure_randomness::Config {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// A type representing the weights required by the dispatchables of this pallet.
@@ -65,6 +68,10 @@ pub mod pallet {
 
         type MaxJurorsPerDispute: Get<u32>;
 
+        type MinJurorsPerDispute: Get<u32>;
+
+        type MaxContextLength: Get<u32>;
+
         type HoldAmount: Get<BalanceOf<Self>>;
 
         type SlashAmount: Get<BalanceOf<Self>>;
@@ -92,6 +99,14 @@ pub mod pallet {
     pub type JurorNativeAccountAdmin<T: Config> =
         StorageMap<_, Blake2_128Concat, T::Did, T::AccountId, OptionQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn get_juror_duty)]
+    pub type JuryDuty<T: Config> = StorageMap<_, Blake2_128Concat, T::Did, ContentId, OptionQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_amount_of_jury_summoned_for_dispute)]
+    pub type JurySummoned<T: Config> = StorageMap<_, Blake2_128Concat, ContentId, u32, OptionQuery>;
+
     // dispute -> jurors
     #[pallet::storage]
     #[pallet::getter(fn get_dispute)]
@@ -102,9 +117,10 @@ pub mod pallet {
     #[scale_info(skip_type_params(T))]
     pub struct CourtSession<T: Config> {
         pub jurors: BoundedVec<T::Did, T::MaxJurorsPerDispute>,
-        pub started_at: BlockNumberFor<T>,
-        pub ended_at: BlockNumberFor<T>,
+        pub started_at: Option<BlockNumberFor<T>>,
+        pub ended_at: Option<BlockNumberFor<T>>,
         pub verdict: Verdict<T>,
+        pub context: BoundedVec<u8, T::MaxContextLength>,
     }
 
     #[pallet::storage]
@@ -119,6 +135,17 @@ pub mod pallet {
         pub decision: Decision,
         pub votes: BoundedVec<VoteRegistry<T>, T::MaxJurorsPerDispute>,
         pub rewarded_and_slashed: bool,
+    }
+
+    impl<T: Config> Verdict<T> {
+        pub fn new() -> Self {
+            Self {
+                escalated: false,
+                decision: Decision::Pending,
+                votes: BoundedVec::new(),
+                rewarded_and_slashed: false,
+            }
+        }
     }
 
     #[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Eq, Clone, MaxEncodedLen, Default)]
@@ -145,8 +172,8 @@ pub mod pallet {
     #[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Eq, Clone, MaxEncodedLen)]
     #[scale_info(skip_type_params(T))]
     pub struct Escalated<T: Config> {
-        pub escalated_at: BlockNumberFor<T>,
-        pub decision_at: BlockNumberFor<T>,
+        pub escalated_at: Option<BlockNumberFor<T>>,
+        pub decision_at: Option<BlockNumberFor<T>>,
         pub decision: Decision,
         pub votes: BoundedVec<VoteRegistry<T>, T::MaxJurors>,
     }
@@ -161,11 +188,11 @@ pub mod pallet {
             block_number: BlockNumberFor<T>,
             who: T::AccountId,
         },
-        JurorRegistered{
+        JurorRegistered {
             block_number: BlockNumberFor<T>,
-            did : T::Did,
+            did: T::Did,
             admin: T::AccountId,
-        }
+        },
     }
 
     #[pallet::error]
@@ -180,6 +207,10 @@ pub mod pallet {
         CouldNotGetResponse,
         /// DidAlreadyExists
         DidAlreadyExists,
+        /// MaxJurorsReached
+        MaxJurorsReached,
+        /// Content already exists in dispute
+        ContentAlreadyExists
     }
 
     #[pallet::hooks]
@@ -197,11 +228,11 @@ pub mod pallet {
                 &T::GivenRight::from(BaseRight::Dispute),
             )
             .map_err(|_| Error::<T>::CouldNotGetResponse)?;
-            
+
             ensure!(is_valid, Error::<T>::SignerDoesNotHaveRight);
             let mut jurors = <Jurors<T>>::get();
             ensure!(!jurors.contains(&did), Error::<T>::DidAlreadyExists);
-            
+
             jurors
                 .try_push(did.clone())
                 .map_err(|_| Error::<T>::StorageOverflow)?;
@@ -213,18 +244,76 @@ pub mod pallet {
                 &who,
                 T::HoldAmount::get(),
             )?;
-            Self::deposit_event(Event::JurorRegistered{
+            Self::deposit_event(Event::JurorRegistered {
                 block_number: <frame_system::Pallet<T>>::block_number(),
                 admin: who,
-                did
+                did,
             });
             Ok(())
         }
+
+        #[pallet::call_index(1)]
+        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+        pub fn dispute_content(
+            origin: OriginFor<T>,
+            did: T::Did,
+            content_id: ContentId,
+            context: BoundedVec<u8, T::MaxContextLength>,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            ensure!(<Dispute<T>>::get(&content_id).is_none(), Error::<T>::ContentAlreadyExists);
+            let is_valid = <T as Config>::DidRegistry::is_signer_valid(
+                &who,
+                &did,
+                &T::GivenRight::from(BaseRight::Dispute),
+            )
+            .map_err(|_| Error::<T>::CouldNotGetResponse)?;
+            ensure!(is_valid, Error::<T>::SignerDoesNotHaveRight);
+            let session = CourtSession {
+                jurors: BoundedVec::new(),
+                started_at: None,
+                ended_at: None,
+                verdict: <Verdict<T>>::new(),
+                context,
+            };
+            Self::summon_jurors(&content_id)?;
+            <Dispute<T>>::set(content_id, Some(session));
+            Ok(())
+        }
+        
+        // #[pallet::call_index(2)]
+        // #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+
+        // pub fn exclude_from_duty(){}
+        // pub fn finalize_duty_and_get_reward(){}
     }
 
-    // impl<T: Config> Pallet<T> {
+    impl<T: Config> Pallet<T> {
+        /// We strongly advocate that the max number of jurors per session be 40
+        pub fn summon_jurors(content_id: &ContentId) -> Result<(), Error<T>> {
+            use polkadot_sdk::sp_std::collections::btree_set::BTreeSet;
 
-    // }
+            if <JurySummoned<T>>::get(content_id).unwrap_or_default()
+                > T::MaxJurorsPerDispute::get()
+            {
+                return Err(Error::<T>::MaxJurorsReached);
+            }
+            let jurors = <Jurors<T>>::get();
+            let (random_value, _) = insecure_randomness::Pallet::<T>::random(&b"summon jurors"[..]);
+            let numbers: BTreeSet<u8> = random_value.encode().into_iter().collect();
+            let mut summoned = 0;
+            for number in numbers {
+                if let Some(juror) = jurors.get(number as usize) {
+                    if !<JuryDuty<T>>::contains_key(juror) {
+                        <JuryDuty<T>>::insert(juror, content_id);
+                        summoned += 1;
+                    }
+                }
+            }
+            <JurySummoned<T>>::mutate(content_id, |n| n.unwrap_or_default() + summoned);
+            Ok(())
+        }
+    }
 }
 
 // user raises a dispute

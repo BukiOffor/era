@@ -17,7 +17,15 @@ mod benchmarking;
 pub mod pallet {
     use frame::prelude::*;
     use shared::types::BaseRight;
-    //use shared::traits::identity::DidManager;
+    
+    use frame::prelude::{
+        fungible::{Inspect, InspectHold, Mutate, MutateHold},
+        *,
+    };
+ 
+    type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
+        <T as frame_system::Config>::AccountId,
+    >>::Balance;
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
@@ -46,11 +54,31 @@ pub mod pallet {
             + From<BaseRight>
             + Into<BaseRight>;
 
+            type NativeBalance: fungible::Inspect<Self::AccountId>
+                    + fungible::Mutate<Self::AccountId>
+                    + fungible::hold::Inspect<Self::AccountId, Reason = Self::RuntimeHoldReason>
+                    + fungible::hold::Mutate<Self::AccountId>
+                    + fungible::freeze::Inspect<Self::AccountId>
+                    + fungible::freeze::Mutate<Self::AccountId>;
+                
+            type RuntimeHoldReason: From<HoldReason>;
+            
+            type HoldAmount: Get<BalanceOf<Self>>;
+            
+            
         //type DidRedistry: DidManager<Self::AccountId,Did<Self>,Device<Self>>;
     }
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
+    
+    
+    #[pallet::composite_enum]
+    #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+    pub enum HoldReason {
+        #[codec(index = 0)]
+        AccountCreation,
+    }
 
     #[derive(
         DebugNoBound,
@@ -217,6 +245,12 @@ pub mod pallet {
             list.try_push(r).map_err(|_| Error::<T>::TooManyRights)?;
             // store the DID
             Signatories::<T>::insert(&did, signatories);
+            
+            <T as Config>::NativeBalance::hold(
+                &HoldReason::AccountCreation.into(),
+                &who,
+                T::HoldAmount::get(),
+            )?;
             // emit event
             Self::deposit_event(Event::DidCreated {
                 did,
