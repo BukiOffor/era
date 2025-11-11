@@ -37,7 +37,7 @@ use frame_support::{
     dispatch::DispatchClass,
     parameter_types,
     traits::{
-        ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, TransformOrigin, VariantCountOf,
+        ConstBool, ConstU32, ConstU64, ConstU128, ConstU8, EitherOfDiverse, TransformOrigin, VariantCountOf,
     },
     weights::{ConstantMultiplier, Weight},
     PalletId,
@@ -326,6 +326,9 @@ impl pallet_identity_registry::Config for Runtime {
     type Device = super::Device;
     type Did = super::Did;
     type GivenRight = BaseRight;
+    type NativeBalance = Balances;
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type HoldAmount = ConstU128<100>; 
 }
 
 /// Configure the pallet template in pallets/template.
@@ -343,4 +346,24 @@ impl pallet_content_registry::Config for Runtime {
     type ContentMetadata = BoundedVec<u8, ConstU32<100>>;
     type MaxContentInVec = ConstU32<10000>;
 }
-// 08109649476
+impl polkadot_sdk::pallet_insecure_randomness_collective_flip::Config for Runtime {}
+
+
+impl pallet_context_court::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_context_court::weights::SubstrateWeight<Runtime>;
+    type Did = BoundedVec<u8, ConstU32<100>>;
+    type Device = BoundedVec<u8, ConstU32<100>>;
+    type DidRegistry = IdentityRegistry;
+    type GivenRight = BaseRight;
+    type NativeBalance = Balances;
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type MaxJurors = ConstU32<100>;
+    type MaxJurorsPerDispute = ConstU32<100>;
+    type MinJurorsPerDispute = ConstU32<100>;
+    type MaxContextLength = ConstU32<500>;
+    type HoldAmount = ConstU128<1000>;
+    type SlashAmount = ConstU128<200>;
+    type ExclusionFee = ConstU128<100>;
+    type EscalatedVotingPeriod = ConstU32<3000>;
+}

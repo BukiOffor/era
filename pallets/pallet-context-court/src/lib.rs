@@ -75,6 +75,10 @@ pub mod pallet {
         type HoldAmount: Get<BalanceOf<Self>>;
 
         type SlashAmount: Get<BalanceOf<Self>>;
+
+        type ExclusionFee: Get<BalanceOf<Self>>;
+        
+        type EscalatedVotingPeriod: Get<BlockNumberFor<Self>>;
     }
 
     #[pallet::pallet]
@@ -82,7 +86,7 @@ pub mod pallet {
 
     /// Enum representing reasons for holding funds.
     #[pallet::composite_enum]
-    #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+    #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo, DecodeWithMemTracking)]
     pub enum HoldReason {
         #[codec(index = 0)]
         JurorAccountCreation,
@@ -100,18 +104,39 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, T::Did, T::AccountId, OptionQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn get_juror_duty)]
-    pub type JuryDuty<T: Config> = StorageMap<_, Blake2_128Concat, T::Did, ContentId, OptionQuery>;
+    pub type JuryDuty<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::Did,
+        Blake2_128Concat,
+        ContentId,
+        bool,
+        ValueQuery,
+    >;
 
     #[pallet::storage]
     #[pallet::getter(fn get_amount_of_jury_summoned_for_dispute)]
     pub type JurySummoned<T: Config> = StorageMap<_, Blake2_128Concat, ContentId, u32, OptionQuery>;
+
+    #[pallet::storage]
+    pub type JurySelection<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        ContentId,
+        BoundedVec<T::Did, T::MaxJurorsPerDispute>,
+        ValueQuery,
+    >;
 
     // dispute -> jurors
     #[pallet::storage]
     #[pallet::getter(fn get_dispute)]
     pub type Dispute<T: Config> =
         StorageMap<_, Blake2_128Concat, ContentId, CourtSession<T>, OptionQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_decision)]
+    pub type Decisions<T: Config> =
+        StorageMap<_, Blake2_128Concat, ContentId, Decision, OptionQuery>;
 
     #[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Clone, MaxEncodedLen)]
     #[scale_info(skip_type_params(T))]
@@ -121,6 +146,7 @@ pub mod pallet {
         pub ended_at: Option<BlockNumberFor<T>>,
         pub verdict: Verdict<T>,
         pub context: BoundedVec<u8, T::MaxContextLength>,
+        pub expires_at: BlockNumberFor<T>,
     }
 
     #[pallet::storage]
@@ -156,7 +182,9 @@ pub mod pallet {
         Pending,
     }
 
-    #[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Eq, Clone, MaxEncodedLen)]
+    #[derive(
+        Debug, Encode, Decode, TypeInfo, PartialEq, Eq, Clone, MaxEncodedLen, DecodeWithMemTracking,
+    )]
     pub enum Vote {
         Yay,
         Nay,
@@ -210,7 +238,27 @@ pub mod pallet {
         /// MaxJurorsReached
         MaxJurorsReached,
         /// Content already exists in dispute
-        ContentAlreadyExists
+        ContentAlreadyExists,
+        /// SessionNotFound
+        SessionNotFound,
+        /// Session has ended
+        SessionHasEnded,
+        /// Jury Requirement not reached yet
+        JuryReqNotMet,
+        /// Session has ALready Started
+        SessionALreadyStarted,
+        /// Session has not started yet
+        SessionHasNotStarted,
+        /// Juror not in session
+        JurorNotInSession,
+        /// Juror already voted
+        JurorAlreadyVoted,
+        /// Session in progress
+        SessionInProgress,
+        /// Session Escalated
+        SessionEscalated,
+        /// Not enough votes
+        NotEnoughVotes,
     }
 
     #[pallet::hooks]
@@ -259,9 +307,13 @@ pub mod pallet {
             did: T::Did,
             content_id: ContentId,
             context: BoundedVec<u8, T::MaxContextLength>,
+            expires_at: BlockNumberFor<T>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            ensure!(<Dispute<T>>::get(&content_id).is_none(), Error::<T>::ContentAlreadyExists);
+            ensure!(
+                <Dispute<T>>::get(&content_id).is_none(),
+                Error::<T>::ContentAlreadyExists
+            );
             let is_valid = <T as Config>::DidRegistry::is_signer_valid(
                 &who,
                 &did,
@@ -275,16 +327,253 @@ pub mod pallet {
                 ended_at: None,
                 verdict: <Verdict<T>>::new(),
                 context,
+                expires_at,
             };
             Self::summon_jurors(&content_id)?;
             <Dispute<T>>::set(content_id, Some(session));
             Ok(())
         }
-        
-        // #[pallet::call_index(2)]
-        // #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
 
-        // pub fn exclude_from_duty(){}
+        #[pallet::call_index(2)]
+        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+        pub fn summon_jurors_ext(origin: OriginFor<T>, content_id: ContentId) -> DispatchResult {
+            ensure_signed(origin)?;
+            Self::summon_jurors(&content_id)?;
+            Ok(())
+        }
+
+        #[pallet::call_index(3)]
+        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+        pub fn start_delibration(origin: OriginFor<T>, content_id: ContentId) -> DispatchResult {
+            ensure_signed(origin)?;
+            let session = <Dispute<T>>::get(&content_id);
+            let current_block = <frame_system::Pallet<T>>::block_number();
+            if let Some(mut session) = session {
+                if current_block.ge(&session.expires_at) {
+                    return Err(Error::<T>::SessionHasEnded.into());
+                }
+                if session.started_at.is_some() {
+                    return Err(Error::<T>::SessionALreadyStarted.into());
+                }
+                let summoned_jury = <JurySummoned<T>>::get(&content_id).unwrap_or_default();
+                if summoned_jury < T::MinJurorsPerDispute::get() {
+                    Self::summon_jurors(&content_id)?;
+                    return Err(Error::<T>::JuryReqNotMet.into());
+                }
+                let selected_jurors = <JurySelection<T>>::get(&content_id);
+                session.jurors = selected_jurors;
+                session.started_at = Some(current_block);
+                <Dispute<T>>::set(&content_id, Some(session));
+                <JurySelection<T>>::remove(&content_id);
+            } else {
+                return Err(Error::<T>::SessionNotFound.into());
+            }
+            Ok(())
+        }
+
+        #[pallet::call_index(4)]
+        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+        pub fn exclude_from_duty(
+            origin: OriginFor<T>,
+            did: T::Did,
+            content_id: ContentId,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            let is_valid = <T as Config>::DidRegistry::is_signer_valid(
+                &who,
+                &did,
+                &T::GivenRight::from(BaseRight::Dispute),
+            )
+            .map_err(|_| Error::<T>::CouldNotGetResponse)?;
+            ensure!(is_valid, Error::<T>::SignerDoesNotHaveRight);
+
+            let session = <Dispute<T>>::get(&content_id);
+            let current_block = <frame_system::Pallet<T>>::block_number();
+            if let Some(session) = session {
+                if current_block.ge(&session.expires_at) {
+                    return Err(Error::<T>::SessionHasEnded.into());
+                }
+                if session.started_at.is_some() {
+                    return Err(Error::<T>::SessionALreadyStarted.into());
+                }
+            } else {
+                return Err(Error::<T>::SessionNotFound.into());
+            }
+
+            let amount = T::ExclusionFee::get();
+            <T as Config>::NativeBalance::burn_from(
+                &who,
+                amount,
+                Preservation::Expendable,
+                Precision::BestEffort,
+                Fortitude::Polite,
+            )?;
+            <JuryDuty<T>>::remove(&did, &content_id);
+            <JurySummoned<T>>::mutate(&content_id, |n| n.unwrap_or_default() - 1);
+
+            let mut selected = <JurySelection<T>>::get(&content_id);
+            let index = selected.iter().position(|x| x == &did);
+            if let Some(i) = index {
+                selected.remove(i);
+            }
+            <JurySelection<T>>::insert(content_id, selected);
+            Ok(())
+        }
+
+        #[pallet::call_index(5)]
+        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+        pub fn cast_vote(
+            origin: OriginFor<T>,
+            did: T::Did,
+            content_id: ContentId,
+            vote: Vote,
+        ) -> DispatchResult {
+            // Implementation of finalize_duty_and_get_reward
+            let who = ensure_signed(origin)?;
+            let is_valid = <T as Config>::DidRegistry::is_signer_valid(
+                &who,
+                &did,
+                &T::GivenRight::from(BaseRight::Dispute),
+            )
+            .map_err(|_| Error::<T>::CouldNotGetResponse)?;
+            ensure!(is_valid, Error::<T>::SignerDoesNotHaveRight);
+            let session = <Dispute<T>>::get(&content_id);
+            let current_block = <frame_system::Pallet<T>>::block_number();
+            if let Some(mut session) = session {
+                if current_block.ge(&session.expires_at) && session.ended_at.is_some() {
+                    return Err(Error::<T>::SessionHasEnded.into());
+                }
+                if session.started_at.is_none() {
+                    return Err(Error::<T>::SessionHasNotStarted.into());
+                }
+                if !session.jurors.contains(&did) {
+                    return Err(Error::<T>::JurorNotInSession.into());
+                }
+
+                for vote in session.verdict.votes.iter() {
+                    if &vote.juror == &did {
+                        return Err(Error::<T>::JurorAlreadyVoted.into());
+                    }
+                }
+                session
+                    .verdict
+                    .votes
+                    .try_push(VoteRegistry {
+                        juror: did,
+                        vote: vote,
+                    })
+                    .map_err(|_| Error::<T>::StorageOverflow)?;
+                <Dispute<T>>::insert(&content_id, session);
+            } else {
+                return Err(Error::<T>::SessionNotFound.into());
+            }
+
+            Ok(())
+        }
+
+        #[pallet::call_index(6)]
+        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+        pub fn calculate_result(origin: OriginFor<T>, content_id: ContentId) -> DispatchResult {
+            ensure_signed(origin)?;
+            
+            if <Decisions<T>>::get(&content_id).is_some() {
+                return Ok(());
+            }
+            
+            let session = <Dispute<T>>::get(&content_id);
+            let current_block = <frame_system::Pallet<T>>::block_number();
+            if let Some(mut session) = session {
+                if current_block.le(&session.expires_at) {
+                    return Err(Error::<T>::SessionInProgress.into());
+                }
+                if session.started_at.is_none() {
+                    return Err(Error::<T>::SessionHasNotStarted.into());
+                }
+
+                if session.verdict.escalated {
+                    return Err(Error::<T>::SessionEscalated.into());
+                }
+
+                if session.verdict.votes.len() < 2 {
+                    return Err(Error::<T>::NotEnoughVotes.into());
+                }
+
+                let votes_required_to_pass = session.verdict.votes.len() / 2;
+
+                let convict_votes = session
+                    .verdict
+                    .votes
+                    .iter()
+                    .filter(|vote| vote.vote.eq(&Vote::Yay))
+                    .count();
+
+                if convict_votes == votes_required_to_pass {
+                    session.verdict.escalated = true;
+                    <Dispute<T>>::insert(&content_id, session);
+                    let escalted = Escalated {
+                        escalated_at: Some(<frame_system::Pallet<T>>::block_number()),
+                        decision_at: None,
+                        decision: Decision::Pending,
+                        votes: BoundedVec::new(),
+                    };
+                    <EscalatedSession<T>>::insert(&content_id, escalted);
+                    return Err(Error::<T>::SessionEscalated.into());
+                }
+                let result = match convict_votes > votes_required_to_pass {
+                    true => Decision::Convict,
+                    false => Decision::Acquittal,
+                };
+                <Decisions<T>>::insert(&content_id, result);
+            } else {
+                return Err(Error::<T>::SessionNotFound.into());
+            }
+            Ok(())
+        }
+        
+        #[pallet::call_index(7)]
+        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+        pub fn vote_escalated(origin: OriginFor<T>, did: T::Did, content_id: ContentId) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            let is_valid = <T as Config>::DidRegistry::is_signer_valid(
+                &who,
+                &did,
+                &T::GivenRight::from(BaseRight::Dispute),
+            )
+            .map_err(|_| Error::<T>::CouldNotGetResponse)?;
+            ensure!(is_valid, Error::<T>::SignerDoesNotHaveRight);
+            
+            let escalated_session = <EscalatedSession<T>>::get(&content_id);
+            
+            if let Some(session) = escalated_session {
+                let current_block = <frame_system::Pallet<T>>::block_number();
+                
+                let expires = current_block + T::EscalatedVotingPeriod::get();
+          
+            } else {
+                return Err(Error::<T>::SessionNotFound.into());
+            }
+            
+      
+            Ok(())
+        }
+      
+        
+        #[pallet::call_index(8)]
+        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+        pub fn calculate_escalated_result(origin: OriginFor<T>) -> DispatchResult {
+            // Implementation of finalize_duty_and_get_reward
+            Ok(())
+        }
+
+
+
+        // #[pallet::call_index(9)]
+        // #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+        // pub fn finalize_duty_and_get_reward(origin: OriginFor<T>) -> DispatchResult {
+        //     // Implementation of finalize_duty_and_get_reward
+        //     Ok(())
+        // }
+
         // pub fn finalize_duty_and_get_reward(){}
     }
 
@@ -293,9 +582,8 @@ pub mod pallet {
         pub fn summon_jurors(content_id: &ContentId) -> Result<(), Error<T>> {
             use polkadot_sdk::sp_std::collections::btree_set::BTreeSet;
 
-            if <JurySummoned<T>>::get(content_id).unwrap_or_default()
-                > T::MaxJurorsPerDispute::get()
-            {
+            let prev_number_of_summons = <JurySummoned<T>>::get(content_id).unwrap_or_default();
+            if prev_number_of_summons > T::MaxJurorsPerDispute::get() {
                 return Err(Error::<T>::MaxJurorsReached);
             }
             let jurors = <Jurors<T>>::get();
@@ -304,8 +592,20 @@ pub mod pallet {
             let mut summoned = 0;
             for number in numbers {
                 if let Some(juror) = jurors.get(number as usize) {
-                    if !<JuryDuty<T>>::contains_key(juror) {
-                        <JuryDuty<T>>::insert(juror, content_id);
+                    if !<JuryDuty<T>>::contains_key(juror, content_id) {
+                        if (prev_number_of_summons + 1) > T::MaxJurorsPerDispute::get() {
+                            break;
+                        }
+                        <JuryDuty<T>>::insert(juror, content_id, true);
+                        <JurySelection<T>>::mutate(
+                            content_id,
+                            |selected| -> Result<(), Error<T>> {
+                                selected
+                                    .try_push(juror.clone())
+                                    .map_err(|_| Error::<T>::StorageOverflow.into())?;
+                                Ok(())
+                            },
+                        )?;
                         summoned += 1;
                     }
                 }

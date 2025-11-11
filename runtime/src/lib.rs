@@ -328,6 +328,8 @@ mod runtime {
     pub type IdentityRegistry = pallet_identity_registry;
     #[runtime::pallet_index(51)]
     pub type ContentRegistry = pallet_content_registry;
+    #[runtime::pallet_index(52)]
+    pub type ContextCourt = pallet_context_court;
 }
 
 #[docify::export(register_validate_block)]

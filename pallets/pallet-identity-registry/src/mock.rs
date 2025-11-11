@@ -5,9 +5,12 @@ use frame::{
     testing_prelude::*,
 };
 use shared::types::BaseRight;
+use polkadot_sdk::pallet_balances;
+
 // Configure a mock runtime to test the pallet.
 #[frame_construct_runtime]
 mod test_runtime {
+    
     #[runtime::runtime]
     #[runtime::derive(
         RuntimeCall,
@@ -26,6 +29,8 @@ mod test_runtime {
     #[runtime::pallet_index(0)]
     pub type System = frame_system;
     #[runtime::pallet_index(1)]
+    pub type Balances = pallet_balances;
+    #[runtime::pallet_index(2)]
     pub type Template = crate;
 }
 
@@ -45,6 +50,9 @@ impl crate::Config for Test {
     type Device = BoundedVec<u8, Self::MaxStringLength>;
     type Did = BoundedVec<u8, Self::MaxStringLength>;
     type GivenRight = BaseRight;
+    type NativeBalance = Balances;
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type HoldAmount = ConstU64<1000>;
 }
 
 // Build genesis storage according to the mock runtime.

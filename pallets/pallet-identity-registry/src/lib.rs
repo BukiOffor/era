@@ -74,7 +74,7 @@ pub mod pallet {
     
     
     #[pallet::composite_enum]
-    #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+    #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo, DecodeWithMemTracking)]
     pub enum HoldReason {
         #[codec(index = 0)]
         AccountCreation,

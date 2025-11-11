@@ -6,7 +6,7 @@ use frame::{
 };
 use pallet_identity_registry;
 use shared::types::BaseRight;
-
+use polkadot_sdk::pallet_balances;
 // Configure a mock runtime to test the pallet.
 #[frame_construct_runtime]
 mod test_runtime {
