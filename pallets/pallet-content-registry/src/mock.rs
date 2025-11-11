@@ -7,6 +7,8 @@ use frame::{
 use pallet_identity_registry;
 use shared::types::BaseRight;
 use polkadot_sdk::pallet_balances;
+
+type Balance = u128;
 // Configure a mock runtime to test the pallet.
 #[frame_construct_runtime]
 mod test_runtime {
@@ -31,6 +33,8 @@ mod test_runtime {
     pub type Template = crate;
     #[runtime::pallet_index(2)]
     pub type IdentityRegistry = pallet_identity_registry;
+    #[runtime::pallet_index(3)]
+    pub type Balances = pallet_balances;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -39,16 +43,36 @@ impl frame_system::Config for Test {
     type Block = MockBlock<Test>;
     type BlockHashCount = ConstU64<250>;
     type DbWeight = RocksDbWeight;
+    type AccountData = pallet_balances::AccountData<Balance>;
+
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Test {
+	type Balance = Balance;
+	type DustRemoval = ();
+	type RuntimeEvent = RuntimeEvent;
+	type ExistentialDeposit = ConstU128<1>;
+	type AccountStore = System;
+	type WeightInfo = ();
+	type MaxLocks = ConstU32<10>;
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type FreezeIdentifier = ();
+	type MaxFreezes = ConstU32<10>;
+}
 impl pallet_identity_registry::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type MaxKeySize = ConstU32<1024>;
     type MaxStringLength = ConstU32<1024>;
+    type MaxKeySize = ConstU32<100>;
     type Device = BoundedVec<u8, Self::MaxStringLength>;
     type Did = BoundedVec<u8, Self::MaxStringLength>;
     type GivenRight = BaseRight;
+    type NativeBalance = Balances;
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type HoldAmount = ConstU128<1000>; 
 }
 
 impl crate::Config for Test {

@@ -19,6 +19,9 @@ scale-info = { features = ["derive"], workspace = true }
 pallet-identity-registry = { workspace = true }
 shared = { workspace = true }
 
+[dev-dependencies]
+polkadot-sdk = { workspace = true, default-features = false, features = ["sp-std", "pallet-balances"] }
+
 
 [features]
 default = ["std"]

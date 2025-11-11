@@ -19,8 +19,6 @@ pub mod pallet {
     use shared::traits::identity::DidManager;
     use shared::types::{BaseRight, ContentId};
 
-    
-
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
@@ -56,7 +54,6 @@ pub mod pallet {
             + Decode
             + TypeInfo;
             
-
         //type ContentId: Parameter + Member + MaxEncodedLen + Clone + Eq ;
         type ContentType: Parameter + Member + MaxEncodedLen + Clone + Eq;
         type ContentDescription: Parameter + Member + MaxEncodedLen + Clone + Eq;

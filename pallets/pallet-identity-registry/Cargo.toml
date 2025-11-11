@@ -16,10 +16,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = ["derive"], workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"], default-features = false }
 scale-info = { features = ["derive"], workspace = true }
-polkadot-sdk = { workspace = true, default-features = false, features = ["sp-std"] }
+polkadot-sdk = { workspace = true, default-features = false, features = ["sp-std", "pallet-balances"] }
 log = "0.4.27"
 shared = { workspace = true }
-
 
 
 [features]

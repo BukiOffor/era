@@ -18,7 +18,7 @@ frame = { workspace = true, features = ["experimental", "runtime"], default-feat
 scale-info = { features = ["derive"], workspace = true }
 shared = {workspace = true}
 pallet-identity-registry = { workspace = true }
-polkadot-sdk = { workspace = true, features = ["pallet-insecure-randomness-collective-flip", "frame-support"] }
+polkadot-sdk = { workspace = true, features = ["pallet-insecure-randomness-collective-flip", "frame-support", "pallet-balances"] }
 
 [features]
 default = ["std"]

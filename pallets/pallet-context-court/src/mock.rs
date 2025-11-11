@@ -5,7 +5,9 @@ use frame::{
     testing_prelude::*,
 };
 use shared::types::BaseRight;
+use polkadot_sdk::pallet_balances;
 
+type Balance = u128;
 // Configure a mock runtime to test the pallet.
 #[frame_construct_runtime]
 mod test_runtime {
@@ -30,6 +32,8 @@ mod test_runtime {
     pub type Template = crate;
     #[runtime::pallet_index(2)]
     pub type IdentityPallet = pallet_identity_registry;
+    #[runtime::pallet_index(3)]
+    pub type Balances = pallet_balances;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -38,6 +42,8 @@ impl frame_system::Config for Test {
     type Block = MockBlock<Test>;
     type BlockHashCount = ConstU64<250>;
     type DbWeight = RocksDbWeight;
+    type AccountData = pallet_balances::AccountData<Balance>;
+
 }
 
 impl pallet_identity_registry::Config for Test {
@@ -48,6 +54,27 @@ impl pallet_identity_registry::Config for Test {
     type Device = BoundedVec<u8, Self::MaxStringLength>;
     type Did = BoundedVec<u8, Self::MaxStringLength>;
     type GivenRight = BaseRight;
+    type NativeBalance = Balances;
+    type HoldAmount = ConstU128<100000>;
+    type RuntimeHoldReason = RuntimeHoldReason;    
+}
+
+impl polkadot_sdk::pallet_insecure_randomness_collective_flip::Config for Test {}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Test {
+	type Balance = Balance;
+	type DustRemoval = ();
+	type RuntimeEvent = RuntimeEvent;
+	type ExistentialDeposit = ConstU128<1>;
+	type AccountStore = System;
+	type WeightInfo = ();
+	type MaxLocks = ConstU32<10>;
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type FreezeIdentifier = ();
+	type MaxFreezes = ConstU32<10>;
 }
 
 impl crate::Config for Test {
@@ -59,6 +86,16 @@ impl crate::Config for Test {
     type GivenRight = BaseRight;
     type Device = BoundedVec<u8, ConstU32<1024>>;
     type DidRegistry = pallet_identity_registry::Pallet<Test>;
+    type NativeBalance = Balances;
+    type ExclusionFee = ConstU128<100>;
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type MinJurorsPerDispute = ConstU32<40>;
+    type MaxContextLength = ConstU32<1000>;
+    type HoldAmount = ConstU128<1000>;
+    type SlashAmount = ConstU128<200>;
+    type EscalatedVotingPeriod = ConstU64<100000>;
+    
+    
 }
 
 // Build genesis storage according to the mock runtime.
