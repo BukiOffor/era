@@ -25,6 +25,7 @@ pub mod pallet {
         traits::identity::DidManager,
         types::{BaseRight, ContentId},
     };
+    use scale_info::prelude::collections::BTreeSet;
 
     /// Define the type for balance used in the pallet.
     type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
@@ -58,7 +59,7 @@ pub mod pallet {
         /// Reason for holding funds.
         type RuntimeHoldReason: From<HoldReason>;
 
-        type Did: Parameter + Member + MaxEncodedLen + Clone + Eq + Default;
+        type Did: Parameter + Member + MaxEncodedLen + Clone + Eq + Default + Ord;
 
         type Device: Parameter + Member + MaxEncodedLen + Clone + Eq + Default;
 
@@ -77,7 +78,7 @@ pub mod pallet {
         type SlashAmount: Get<BalanceOf<Self>>;
 
         type ExclusionFee: Get<BalanceOf<Self>>;
-        
+
         type EscalatedVotingPeriod: Get<BlockNumberFor<Self>>;
     }
 
@@ -86,7 +87,18 @@ pub mod pallet {
 
     /// Enum representing reasons for holding funds.
     #[pallet::composite_enum]
-    #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo, DecodeWithMemTracking)]
+    #[derive(
+        Encode,
+        Decode,
+        Clone,
+        Copy,
+        PartialEq,
+        Eq,
+        RuntimeDebug,
+        MaxEncodedLen,
+        TypeInfo,
+        DecodeWithMemTracking,
+    )]
     pub enum HoldReason {
         #[codec(index = 0)]
         JurorAccountCreation,
@@ -97,6 +109,11 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn jurors)]
     pub type Jurors<T: Config> = StorageValue<_, BoundedVec<T::Did, T::MaxJurors>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_all_escalated_dispute)]
+    pub type EscalatedDisputes<T: Config> =
+        StorageValue<_, BoundedVec<ContentId, T::MaxJurors>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn get_juror_native_account)]
@@ -259,6 +276,10 @@ pub mod pallet {
         SessionEscalated,
         /// Not enough votes
         NotEnoughVotes,
+        /// No reward for escalated session
+        NoRewardForEscalatedSession,
+        /// Session has been rewarded
+        SessionHasBeenRewarded,
     }
 
     #[pallet::hooks]
@@ -475,11 +496,11 @@ pub mod pallet {
         #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
         pub fn calculate_result(origin: OriginFor<T>, content_id: ContentId) -> DispatchResult {
             ensure_signed(origin)?;
-            
+
             if <Decisions<T>>::get(&content_id).is_some() {
                 return Ok(());
             }
-            
+
             let session = <Dispute<T>>::get(&content_id);
             let current_block = <frame_system::Pallet<T>>::block_number();
             if let Some(mut session) = session {
@@ -517,6 +538,13 @@ pub mod pallet {
                         votes: BoundedVec::new(),
                     };
                     <EscalatedSession<T>>::insert(&content_id, escalted);
+
+                    <EscalatedDisputes<T>>::mutate(|disputes| -> Result<(), Error<T>> {
+                        disputes
+                            .try_push(content_id)
+                            .map_err(|_| Error::<T>::StorageOverflow.into())?;
+                        Ok(())
+                    })?;
                     return Err(Error::<T>::SessionEscalated.into());
                 }
                 let result = match convict_votes > votes_required_to_pass {
@@ -529,10 +557,15 @@ pub mod pallet {
             }
             Ok(())
         }
-        
+
         #[pallet::call_index(7)]
         #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
-        pub fn vote_escalated(origin: OriginFor<T>, did: T::Did, content_id: ContentId) -> DispatchResult {
+        pub fn vote_escalated_content(
+            origin: OriginFor<T>,
+            did: T::Did,
+            content_id: ContentId,
+            vote: Vote,
+        ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let is_valid = <T as Config>::DidRegistry::is_signer_valid(
                 &who,
@@ -541,38 +574,153 @@ pub mod pallet {
             )
             .map_err(|_| Error::<T>::CouldNotGetResponse)?;
             ensure!(is_valid, Error::<T>::SignerDoesNotHaveRight);
-            
+
             let escalated_session = <EscalatedSession<T>>::get(&content_id);
-            
-            if let Some(session) = escalated_session {
+
+            if let Some(mut session) = escalated_session {
                 let current_block = <frame_system::Pallet<T>>::block_number();
-                
-                let expires = current_block + T::EscalatedVotingPeriod::get();
-          
+
+                let expires_at = current_block + T::EscalatedVotingPeriod::get();
+                if current_block > expires_at {
+                    return Err(Error::<T>::SessionHasEnded.into());
+                }
+                for vote in session.votes.iter() {
+                    if &vote.juror == &did {
+                        return Err(Error::<T>::JurorAlreadyVoted.into());
+                    }
+                }
+                session.escalated_at = Some(current_block);
+                session
+                    .votes
+                    .try_push(VoteRegistry {
+                        juror: did,
+                        vote: vote,
+                    })
+                    .map_err(|_| Error::<T>::StorageOverflow)?;
+                <EscalatedSession<T>>::insert(&content_id, session);
             } else {
                 return Err(Error::<T>::SessionNotFound.into());
             }
-            
-      
+
             Ok(())
         }
-      
-        
+
         #[pallet::call_index(8)]
         #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
-        pub fn calculate_escalated_result(origin: OriginFor<T>) -> DispatchResult {
+        pub fn calculate_escalated_result(
+            origin: OriginFor<T>,
+            content_id: ContentId,
+        ) -> DispatchResult {
             // Implementation of finalize_duty_and_get_reward
+            ensure_signed(origin)?;
+
+            if <Decisions<T>>::get(&content_id).is_some() {
+                return Ok(());
+            }
+
+            let session = <EscalatedSession<T>>::get(&content_id);
+            let current_block = <frame_system::Pallet<T>>::block_number();
+            if let Some(mut session) = session {
+                let expires_at =
+                    session.escalated_at.unwrap_or_default() + T::EscalatedVotingPeriod::get();
+                if current_block.le(&expires_at) {
+                    return Err(Error::<T>::SessionInProgress.into());
+                }
+
+                if session.votes.len() < 2 {
+                    return Err(Error::<T>::NotEnoughVotes.into());
+                }
+
+                let votes_required_to_pass = session.votes.len() / 2;
+
+                let convict_votes = session
+                    .votes
+                    .iter()
+                    .filter(|vote| vote.vote.eq(&Vote::Yay))
+                    .count();
+
+                let result = match convict_votes > votes_required_to_pass {
+                    true => Decision::Convict,
+                    false => Decision::Acquittal,
+                };
+                <Decisions<T>>::insert(&content_id, &result);
+                session.decision_at = Some(<frame_system::Pallet<T>>::block_number());
+                session.decision = result;
+                <EscalatedSession<T>>::insert(&content_id, session);
+
+                let mut selected = <EscalatedDisputes<T>>::get();
+                let index = selected.iter().position(|x| x == &content_id);
+                if let Some(i) = index {
+                    selected.remove(i);
+                }
+                <EscalatedDisputes<T>>::set(selected);
+            } else {
+                return Err(Error::<T>::SessionNotFound.into());
+            }
             Ok(())
         }
 
-
-
-        // #[pallet::call_index(9)]
-        // #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
-        // pub fn finalize_duty_and_get_reward(origin: OriginFor<T>) -> DispatchResult {
-        //     // Implementation of finalize_duty_and_get_reward
-        //     Ok(())
+        // #[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Clone, MaxEncodedLen)]
+        // #[scale_info(skip_type_params(T))]
+        // pub struct CourtSession<T: Config> {
+        //     pub jurors: BoundedVec<T::Did, T::MaxJurorsPerDispute>,
+        //     pub started_at: Option<BlockNumberFor<T>>,
+        //     pub ended_at: Option<BlockNumberFor<T>>,
+        //     pub verdict: Verdict<T>,
+        //     pub context: BoundedVec<u8, T::MaxContextLength>,
+        //     pub expires_at: BlockNumberFor<T>,
         // }
+
+        // #[pallet::storage]
+        // #[pallet::getter(fn get_escalated_dispute)]
+        // pub type EscalatedSession<T: Config> =
+        //     StorageMap<_, Blake2_128Concat, ContentId, Escalated<T>, OptionQuery>;
+
+        // #[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Clone, MaxEncodedLen)]
+        // #[scale_info(skip_type_params(T))]
+        // pub struct Verdict<T: Config> {
+        //     pub escalated: bool,
+        //     pub decision: Decision,
+        //     pub votes: BoundedVec<VoteRegistry<T>, T::MaxJurorsPerDispute>,
+        //     pub rewarded_and_slashed: bool,
+        // }
+
+        #[pallet::call_index(9)]
+        #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
+        pub fn get_reward_for_duty(origin: OriginFor<T>, content_id: ContentId) -> DispatchResult {
+            ensure_signed(origin)?;
+            // Implementation of finalize_duty_and_get_reward
+            // if escalated no reward but punishment will still be applied
+            //
+            let session = <Dispute<T>>::get(&content_id);
+
+            if let Some(mut session) = session {
+                if session.ended_at.is_some() {
+                    return Err(Error::<T>::SessionHasBeenRewarded.into());
+                }
+
+                if session.verdict.escalated {
+                    // slash jurors that did not vote
+                    let jurors_for_session = <JurySelection<T>>::get(&content_id).into_iter().collect::<BTreeSet<T::Did>>();
+                    let jurors_that_voted = session
+                        .verdict
+                        .votes
+                        .iter()
+                        .map(|vote| vote.juror.clone())
+                        .collect::<BTreeSet<T::Did>>();
+                    
+                    
+                    let diff = jurors_for_session.difference(&jurors_that_voted).collect::<Vec<_>>();
+                    return Ok(());
+                }
+
+                session.ended_at = Some(frame_system::Pallet::<T>::block_number());
+                <Dispute<T>>::insert(&content_id, session);
+            } else {
+                return Err(Error::<T>::SessionNotFound.into());
+            }
+            Ok(())
+        }
 
         // pub fn finalize_duty_and_get_reward(){}
     }

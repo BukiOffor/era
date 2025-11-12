@@ -4,8 +4,8 @@ use frame::{
     runtime::prelude::*,
     testing_prelude::*,
 };
-use shared::types::BaseRight;
 use polkadot_sdk::pallet_balances;
+use shared::types::BaseRight;
 
 type Balance = u128;
 // Configure a mock runtime to test the pallet.
@@ -43,7 +43,6 @@ impl frame_system::Config for Test {
     type BlockHashCount = ConstU64<250>;
     type DbWeight = RocksDbWeight;
     type AccountData = pallet_balances::AccountData<Balance>;
-
 }
 
 impl pallet_identity_registry::Config for Test {
@@ -56,25 +55,25 @@ impl pallet_identity_registry::Config for Test {
     type GivenRight = BaseRight;
     type NativeBalance = Balances;
     type HoldAmount = ConstU128<100000>;
-    type RuntimeHoldReason = RuntimeHoldReason;    
+    type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 impl polkadot_sdk::pallet_insecure_randomness_collective_flip::Config for Test {}
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = Balance;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ConstU128<1>;
-	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxLocks = ConstU32<10>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<10>;
+    type Balance = Balance;
+    type DustRemoval = ();
+    type RuntimeEvent = RuntimeEvent;
+    type ExistentialDeposit = ConstU128<1>;
+    type AccountStore = System;
+    type WeightInfo = ();
+    type MaxLocks = ConstU32<10>;
+    type MaxReserves = ();
+    type ReserveIdentifier = [u8; 8];
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type FreezeIdentifier = ();
+    type MaxFreezes = ConstU32<10>;
 }
 
 impl crate::Config for Test {
@@ -94,8 +93,6 @@ impl crate::Config for Test {
     type HoldAmount = ConstU128<1000>;
     type SlashAmount = ConstU128<200>;
     type EscalatedVotingPeriod = ConstU64<100000>;
-    
-    
 }
 
 // Build genesis storage according to the mock runtime.
