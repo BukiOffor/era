@@ -1,268 +1,205 @@
-<div align="center">
+# Era: The Ledger of Reality
 
-# Polkadot SDK's Parachain Template
+**Era** is a Substrate-based blockchain protocol designed to create an immutable, verifiable ledger of digital content authenticity. In an age of AI-generated content and deepfakes, Era provides cryptographic proof that content is real, unaltered, and created at a specific time by a verified device.
 
-<img height="70px" alt="Polkadot SDK Logo" src="https://github.com/paritytech/polkadot-sdk/raw/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png#gh-dark-mode-only"/>
-<img height="70px" alt="Polkadot SDK Logo" src="https://github.com/paritytech/polkadot-sdk/raw/master/docs/images/Polkadot_Logo_Horizontal_Pink_Black.png#gh-light-mode-only"/>
+## Project Overview
 
-> This is a template for creating a [parachain](https://wiki.polkadot.network/docs/learn-parachains) based on Polkadot SDK.
->
-> This template is automatically updated after releases in the main [Polkadot SDK monorepo](https://github.com/paritytech/polkadot-sdk).
+Era addresses the fundamental problem of digital trust by flipping the traditional approach: instead of trying to detect what's fake, Era proves what's real. The protocol creates an unforgeable link between digital content and physical devices using hardware security modules (Secure Enclave on iOS, TEE on Android), enabling verifiable content authenticity at the moment of creation.
 
-</div>
+The Era blockchain is built as an **AppChain** optimized for high-throughput, low-cost ingestion of content proofs. It consists of three core pallets that work together to provide end-to-end content verification:
 
-## Table of Contents
+1. **Identity Registry** - Manages decentralized identities (DIDs) and permissions
+2. **Content Registry** - Stores cryptographic proofs of content authenticity
+3. **Context Court** - Provides decentralized dispute resolution for content context
 
-- [Intro](#intro)
+## Architecture
 
-- [Template Structure](#template-structure)
+### Core Components
 
-- [Getting Started](#getting-started)
+#### 1. Identity Registry Pallet
+The foundation of the Era protocol, managing Decentralized Identifiers (DIDs) and their associated permissions. This pallet enables:
+- DID creation and management
+- Granular rights system (Update, Impersonate, Dispute)
+- Device registration and verification
+- Temporal permissions (permanent and time-bound)
 
-- [Starting a Development Chain](#starting-a-development-chain)
+**📖 [Read the Identity Registry documentation →](./pallets/pallet-identity-registry/README.md)**
 
-  - [Omni Node](#omni-node-prerequisites)
-  - [Zombienet setup with Omni Node](#zombienet-setup-with-omni-node)
-  - [Parachain Template Node](#parachain-template-node)
-  - [Connect with the Polkadot-JS Apps Front-End](#connect-with-the-polkadot-js-apps-front-end)
-  - [Takeaways](#takeaways)
+#### 2. Content Registry Pallet
+The heart of content verification, storing immutable proofs of content authenticity. This pallet provides:
+- Cryptographic content registration (Blake2-256 hashing)
+- Content-to-DID binding
+- Device-based origin verification
+- Immutable content ledger
 
-- [Runtime development](#runtime-development)
-- [Contributing](#contributing)
-- [Getting Help](#getting-help)
+**📖 [Read the Content Registry documentation →](./pallets/pallet-content-registry/README.md)**
 
-## Intro
+#### 3. Context Court Pallet
+A decentralized dispute resolution system that bridges the gap between cryptographic content verification and contextual truth. This pallet enables:
+- Jury-based dispute resolution
+- Two-tier voting system (initial jury + escalation)
+- Economic incentives (rewards for participation, slashes for misbehavior)
+- Batch processing for efficient reward distribution
 
-- ⏫ This template provides a starting point to build a [parachain](https://wiki.polkadot.network/docs/learn-parachains).
+**📖 [Read the Context Court documentation →](./pallets/pallet-context-court/README.md)**
 
-- ☁️ It is based on the
-  [Cumulus](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/cumulus/index.html) framework.
+### How They Work Together
 
-- 🔧 Its runtime is configured with a single custom pallet as a starting point, and a handful of ready-made pallets
-  such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
+```
+┌─────────────────────┐
+│  Identity Registry  │  ← Creates DIDs and manages permissions
+└──────────┬──────────┘
+           │
+           │ (validates permissions)
+           ▼
+┌─────────────────────┐
+│  Content Registry   │  ← Registers content with cryptographic proofs
+└──────────┬──────────┘
+           │
+           │ (disputes about context)
+           ▼
+┌─────────────────────┐
+│   Context Court     │  ← Resolves disputes through jury voting
+└─────────────────────┘
+```
 
-- 👉 Learn more about parachains [here](https://wiki.polkadot.network/docs/learn-parachains)
+1. **Identity Creation**: Users create DIDs in the Identity Registry and register devices
+2. **Content Registration**: Users with appropriate permissions register content in the Content Registry, creating immutable proofs
+3. **Dispute Resolution**: When content context is disputed, the Context Court enables decentralized resolution through juror voting
 
-## Template Structure
+## Key Features
 
-A Polkadot SDK based project such as this one consists of:
+- **Hardware-Based Security**: Leverages Secure Enclave (iOS) and TEE (Android) for device-level signing
+- **Cryptographic Integrity**: Content IDs derived from content hashes ensure tamper detection
+- **Decentralized Identity**: Self-sovereign DIDs with granular permission management
+- **Economic Security**: Staking and slashing mechanisms ensure honest participation
+- **Immutable Ledger**: Once registered, content proofs cannot be modified or deleted
+- **Composable Design**: Modular pallets that integrate seamlessly with other Substrate pallets
 
-- 🧮 the [Runtime](./runtime/README.md) - the core logic of the parachain.
-- 🎨 the [Pallets](./pallets/README.md) - from which the runtime is constructed.
-- 💿 a [Node](./node/README.md) - the binary application, not part of the project default-members list and not compiled unless
-  building the project with `--workspace` flag, which builds all workspace members, and is an alternative to
-  [Omni Node](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html).
+## The Problem Era Solves
+
+In the current digital landscape:
+- AI-generated content is indistinguishable from real content
+- Deepfakes can fool even experts
+- Context can be manipulated (real photos with false claims)
+- There's no reliable way to prove digital content authenticity
+
+Era solves this by:
+- Creating cryptographic proofs at the moment of content creation
+- Binding content to physical devices through hardware security
+- Providing an immutable, on-chain record of authenticity
+- Enabling human verification of content context through decentralized dispute resolution
 
 ## Getting Started
 
-- 🦀 The template is using the Rust language.
+### Prerequisites
 
-- 👉 Check the
-  [Rust installation instructions](https://www.rust-lang.org/tools/install) for your system.
+- Rust & Cargo installed ([rustup.rs](https://rustup.rs/))
+- Substrate development environment
+- frame omni-node (for local development)
 
-- 🛠️ Depending on your operating system and Rust version, there might be additional
-  packages required to compile this template - please take note of the Rust compiler output.
+### Building the Project
 
-Fetch parachain template code:
+1. Clone the repository:
 
-```sh
-git clone https://github.com/paritytech/polkadot-sdk-parachain-template.git parachain-template
+   ```sh
+   git clone <repository-url>
+   cd era
+   ```
 
-cd parachain-template
-```
+2. Build the project:
 
-## Starting a Development Chain
+   ```sh
+   cargo build --release
+   ```
 
-The parachain template relies on a hardcoded parachain id which is defined in the runtime code
-and referenced throughout the contents of this file as `{{PARACHAIN_ID}}`. Please replace
-any command or file referencing this placeholder with the value of the `PARACHAIN_ID` constant:
+3. Run tests:
 
-```rust,ignore
-pub const PARACHAIN_ID: u32 = 1000;
-```
+   ```sh
+   cargo test
+   ```
 
-### Omni Node Prerequisites
-
-[Omni Node](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html) can
-be used to run the parachain template's runtime. `polkadot-omni-node` binary crate usage is described at a high-level
-[on crates.io](https://crates.io/crates/polkadot-omni-node).
-
-#### Install `polkadot-omni-node`
-
-Please see the installation section at [`crates.io/omni-node`](https://crates.io/crates/polkadot-omni-node).
-
-#### Build `parachain-template-runtime`
+### Running a Local Node
 
 ```sh
-cargo build --profile production
+cargo run --release -- --dev
 ```
 
-#### Install `staging-chain-spec-builder`
+## Project Structure
 
-Please see the installation section at [`crates.io/staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder).
-
-#### Use `chain-spec-builder` to generate the `chain_spec.json` file
-
-```sh
-chain-spec-builder create --relay-chain "rococo-local" --para-id {{PARACHAIN_ID}} --runtime \
-    target/release/wbuild/parachain-template-runtime/parachain_template_runtime.wasm named-preset development
+```
+era/
+├── node/                    # Substrate node implementation
+├── runtime/                # Runtime configuration
+├── pallets/
+│   ├── pallet-identity-registry/    # DID and identity management
+│   ├── pallet-content-registry/     # Content proof storage
+│   ├── pallet-context-court/        # Dispute resolution system
+│   └── shared/                      # Shared traits and types
+├── Story.md                 # The story and vision behind Era
+└── README.md               # This file
 ```
 
-**Note**: the `relay-chain` and `para-id` flags are mandatory information required by
-Omni Node, and for parachain template case the value for `para-id` must be set to `{{PARACHAIN_ID}}`, since this
-is also the value injected through [ParachainInfo](https://docs.rs/staging-parachain-info/0.17.0/staging_parachain_info/)
-pallet into the `parachain-template-runtime`'s storage. The `relay-chain` value is set in accordance
-with the relay chain ID where this instantiation of parachain-template will connect to.
+## Documentation
 
-#### Run Omni Node
+- **[Identity Registry Pallet](./pallets/pallet-identity-registry/README.md)** - Complete documentation for the identity management system
+- **[Content Registry Pallet](./pallets/pallet-content-registry/README.md)** - Complete documentation for content verification
+- **[Context Court Pallet](./pallets/pallet-context-court/README.md)** - Complete documentation for dispute resolution
+- **[Story.md](./Story.md)** - The inspiration, challenges, and vision behind Era
 
-Start Omni Node with the generated chain spec. We'll start it in development mode (without a relay chain config), producing
-and finalizing blocks based on manual seal, configured below to seal a block with each second.
+## Use Cases
 
-```bash
-polkadot-omni-node --chain <path/to/chain_spec.json> --dev --dev-block-time 1000
-```
+- **Journalism**: Verify the authenticity of news photos and videos
+- **Legal Documentation**: Create immutable records of evidence
+- **Scientific Research**: Verify the authenticity of research data
+- **Social Media**: Enable platforms to verify user-generated content
+- **Insurance**: Verify claims with authentic documentation
+- **Content Marketplaces**: Prove authenticity of digital assets
 
-However, such a setup is not close to what would run in production, and for that we need to setup a local
-relay chain network that will help with the block finalization. In this guide we'll setup a local relay chain
-as well. We'll not do it manually, by starting one node at a time, but we'll use [zombienet](https://paritytech.github.io/zombienet/intro.html).
+## Security Considerations
 
-Follow through the next section for more details on how to do it.
+- **Hardware Security**: Content proofs are bound to hardware security modules
+- **Cryptographic Hashing**: Blake2-256 ensures tamper detection
+- **Economic Incentives**: Staking and slashing align incentives for honest behavior
+- **Permission System**: Granular rights prevent unauthorized operations
+- **Immutable Records**: Once registered, proofs cannot be modified
 
-### Zombienet setup with Omni Node
+## Roadmap
 
-Assuming we continue from the last step of the previous section, we have a chain spec and we need to setup a relay chain.
-We can install `zombienet` as described [here](https://paritytech.github.io/zombienet/install.html#installation), and
-`zombienet-omni-node.toml` contains the network specification we want to start.
-
-#### Relay chain prerequisites
-
-Download the `polkadot` (and the accompanying `polkadot-prepare-worker` and `polkadot-execute-worker`) binaries from
-[Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases). Then expose them on `PATH` like so:
-
-```sh
-export PATH="$PATH:<path/to/binaries>"
-```
-
-#### Update `zombienet-omni-node.toml` with a valid chain spec path
-
-To simplify the process of using the parachain-template with zombienet and Omni Node, we've added a pre-configured
-development chain spec (dev_chain_spec.json) to the parachain template. The zombienet-omni-node.toml file of this
-template points to it, but you can update it to an updated chain spec generated on your machine. To generate a
-chain spec refer to [staging-chain-spec-builder](https://crates.io/crates/staging-chain-spec-builder)
-
-Then make the changes in the network specification like so:
-
-```toml
-# ...
-[[parachains]]
-id = "<PARACHAIN_ID>"
-chain_spec_path = "<TO BE UPDATED WITH A VALID PATH>"
-# ...
-```
-
-#### Start the network
-
-```sh
-zombienet --provider native spawn zombienet-omni-node.toml
-```
-
-### Parachain Template Node
-
-As mentioned in the `Template Structure` section, the `node` crate is optionally compiled and it is an alternative
-to `Omni Node`. Similarly, it requires setting up a relay chain, and we'll use `zombienet` once more.
-
-#### Install the `parachain-template-node`
-
-```sh
-cargo install --path node
-```
-
-#### Setup and start the network
-
-For setup, please consider the instructions for `zombienet` installation [here](https://paritytech.github.io/zombienet/install.html#installation)
-and [relay chain prerequisites](#relay-chain-prerequisites).
-
-We're left just with starting the network:
-
-```sh
-zombienet --provider native spawn zombienet.toml
-```
-
-### Connect with the Polkadot-JS Apps Front-End
-
-- 🌐 You can interact with your local node using the
-  hosted version of the Polkadot/Substrate Portal:
-  [relay chain](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9944)
-  and [parachain](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9988).
-
-- 🪐 A hosted version is also
-  available on [IPFS](https://dotapps.io/).
-
-- 🧑‍🔧 You can also find the source code and instructions for hosting your own instance in the
-  [`polkadot-js/apps`](https://github.com/polkadot-js/apps) repository.
-
-### Takeaways
-
-Development parachains:
-
-- 🔗 Connect to relay chains, and we showcased how to connect to a local one.
-- 🧹 Do not persist the state.
-- 💰 Are preconfigured with a genesis state that includes several prefunded development accounts.
-- 🧑‍⚖️ Development accounts are used as validators, collators, and `sudo` accounts.
-
-## Runtime development
-
-We recommend using [`chopsticks`](https://github.com/AcalaNetwork/chopsticks) when the focus is more on the runtime
-development and `OmniNode` is enough as is.
-
-### Install chopsticks
-
-To use `chopsticks`, please install the latest version according to the installation [guide](https://github.com/AcalaNetwork/chopsticks?tab=readme-ov-file#install).
-
-### Build a raw chain spec
-
-Build the `parachain-template-runtime` as mentioned before in this guide and use `chain-spec-builder`
-again but this time by passing `--raw-storage` flag:
-
-```sh
-chain-spec-builder create --raw-storage --relay-chain "rococo-local" --para-id {{PARACHAIN_ID}} --runtime \
-    target/release/wbuild/parachain-template-runtime/parachain_template_runtime.wasm named-preset development
-```
-
-### Start `chopsticks` with the chain spec
-
-```sh
-npx @acala-network/chopsticks@latest --chain-spec <path/to/chain_spec.json>
-```
-
-### Alternatives
-
-`OmniNode` can be still used for runtime development if using the `--dev` flag, while `parachain-template-node` doesn't
-support it at this moment. It can still be used to test a runtime in a full setup where it is started alongside a
-relay chain network (see [Parachain Template node](#parachain-template-node) setup).
+- [ ] Mobile app with Secure Enclave/TEE integration
+- [ ] IPFS integration for content storage
+- [ ] API and SDK for third-party integration
+- [ ] Cross-chain verification via XCM
+- [ ] Reputation system for jurors
+- [ ] Firmware-level integration with device manufacturers
 
 ## Contributing
 
-- 🔄 This template is automatically updated after releases in the main [Polkadot SDK monorepo](https://github.com/paritytech/polkadot-sdk).
+We welcome contributions! Please see our contributing guidelines (to be added) for details on:
+- Code style and standards
+- Testing requirements
+- Pull request process
+- Issue reporting
 
-- ➡️ Any pull requests should be directed to this [source](https://github.com/paritytech/polkadot-sdk/tree/master/templates/parachain).
+## License
 
-- 😇 Please refer to the monorepo's
-  [contribution guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md) and
-  [Code of Conduct](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CODE_OF_CONDUCT.md).
+This project is licensed under the terms specified in the [LICENSE](./LICENSE) file.
 
-## Getting Help
+## Bigger Picture
 
-- 🧑‍🏫 To learn about Polkadot in general, [docs.Polkadot.com](https://docs.polkadot.com/) website is a good starting point.
+Era is more than a blockchain—it's infrastructure for a more truthful digital age. By creating a permanent, immutable, and decentralized "ledger of reality," Era enables:
 
-- 🧑‍🔧 For technical introduction, [here](https://github.com/paritytech/polkadot-sdk#-documentation) are
-  the Polkadot SDK documentation resources.
+- **Trust in Digital Media**: Know that what you see is real
+- **Accountability**: Trace content back to its source
+- **Verification**: Prove authenticity without relying on central authorities
+- **Decentralized Truth**: Human judgment for contextual verification
 
-- 👥 Additionally, there are [GitHub issues](https://github.com/paritytech/polkadot-sdk/issues) and
-  [Substrate StackExchange](https://substrate.stackexchange.com/).
-- 👥You can also reach out on the [Official Polkdot discord server](https://polkadot-discord.w3f.tools/)
-- 🧑Reach out on [Telegram](https://t.me/substratedevs) for more questions and discussions
+## Learn More
 
+- Read [Story.md](./Story.md) to understand the inspiration and vision behind Era
+- Explore individual pallet documentation for technical details
+- Check out the [Substrate documentation](https://docs.substrate.io/) to understand the underlying framework
 
-// ./target/release/parachain-template-node --chain ./chain_spec.json --dev
+---
+
+**Era: If it matters, it's on Era.**
