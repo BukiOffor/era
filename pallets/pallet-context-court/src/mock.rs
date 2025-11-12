@@ -91,8 +91,11 @@ impl crate::Config for Test {
     type MinJurorsPerDispute = ConstU32<40>;
     type MaxContextLength = ConstU32<1000>;
     type HoldAmount = ConstU128<1000>;
+    type RewardAmount = ConstU128<200>;
     type SlashAmount = ConstU128<200>;
     type EscalatedVotingPeriod = ConstU64<100000>;
+    type MaxRewardsNumber = ConstU32<1000>;
+    type BatchRewardSize = ConstU32<10>;
 }
 
 // Build genesis storage according to the mock runtime.

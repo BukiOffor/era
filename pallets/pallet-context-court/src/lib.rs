@@ -16,16 +16,17 @@ mod benchmarking;
 #[frame::pallet]
 pub mod pallet {
     use frame::prelude::{
-        fungible::{Inspect, InspectHold, Mutate, MutateHold},
+        fungible::{Mutate, MutateHold},
         *,
     };
     use polkadot_sdk::frame_support::traits::Randomness;
     use polkadot_sdk::pallet_insecure_randomness_collective_flip as insecure_randomness;
+    use polkadot_sdk::sp_std::vec::Vec;
+    use scale_info::prelude::collections::BTreeSet;
     use shared::{
         traits::identity::DidManager,
         types::{BaseRight, ContentId},
     };
-    use scale_info::prelude::collections::BTreeSet;
 
     /// Define the type for balance used in the pallet.
     type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
@@ -77,9 +78,15 @@ pub mod pallet {
 
         type SlashAmount: Get<BalanceOf<Self>>;
 
+        type RewardAmount: Get<BalanceOf<Self>>;
+
         type ExclusionFee: Get<BalanceOf<Self>>;
 
         type EscalatedVotingPeriod: Get<BlockNumberFor<Self>>;
+
+        type MaxRewardsNumber: Get<u32>;
+
+        type BatchRewardSize: Get<u32>;
     }
 
     #[pallet::pallet]
@@ -154,6 +161,16 @@ pub mod pallet {
     #[pallet::getter(fn get_decision)]
     pub type Decisions<T: Config> =
         StorageMap<_, Blake2_128Concat, ContentId, Decision, OptionQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn pending_slashes)]
+    pub(super) type PendingSlashes<T: Config> =
+        StorageValue<_, BoundedVec<T::Did, T::MaxRewardsNumber>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn pending_rewards)]
+    pub(super) type PendingRewards<T: Config> =
+        StorageValue<_, BoundedVec<T::Did, T::MaxRewardsNumber>, ValueQuery>;
 
     #[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Clone, MaxEncodedLen)]
     #[scale_info(skip_type_params(T))]
@@ -283,7 +300,75 @@ pub mod pallet {
     }
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
+            let (random_value, _) = insecure_randomness::Pallet::<T>::random(&b"rewards"[..]);
+            let random_number: u32 = random_value.encode().into_iter().collect::<Vec<u8>>().iter().sum::<u8>() as u32;
+            let punish_offenders = random_number % 2 == 0;
+           
+            match punish_offenders {
+                true => {
+                    let mut queue = <PendingSlashes<T>>::get();
+                    let batch_size: u32 = T::BatchRewardSize::get(); // number of jurors to slash per block
+                    let mut processed: u32 = 0;
+                    let amount = T::SlashAmount::get();
+        
+                    while processed < batch_size {
+                        if let Some(juror) = queue.pop() {
+                            if let Some(admin) = <JurorNativeAccountAdmin<T>>::get(&juror) {
+                                let result = <T as Config>::NativeBalance::burn_from(
+                                    &admin,
+                                    amount,
+                                    Preservation::Expendable,
+                                    Precision::BestEffort,
+                                    Fortitude::Force,
+                                );
+                                if let Err(_) = result {
+                                    let mut jurors = <Jurors<T>>::get();
+                                    let index = jurors.iter().position(|x| x == &juror);
+                                    if let Some(i) = index {
+                                        jurors.remove(i);
+                                    }
+                                    <Jurors<T>>::set(jurors);
+                                }
+                            };
+                            processed += 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    <PendingSlashes<T>>::put(queue);
+                    return T::DbWeight::get().writes(processed.into());
+                },
+                false => {
+                    let mut queue = <PendingRewards<T>>::get();
+                    let batch_size: u32 = T::BatchRewardSize::get(); // number of jurors to slash per block
+                    let mut processed: u32 = 0;
+                    let amount = T::RewardAmount::get();
+                    let mut retrials = Vec::new();
+                    while processed < batch_size {
+                        if let Some(juror) = queue.pop() {
+                            if let Some(admin) = <JurorNativeAccountAdmin<T>>::get(&juror) {
+                                let result = <T as Config>::NativeBalance::mint_into(
+                                    &admin,
+                                    amount
+                                );
+                                if let Err(_) = result {
+                                   retrials.push(juror);
+                                }
+                            };
+                            processed += 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    let _ = queue.try_append(&mut retrials);
+                    <PendingRewards<T>>::put(queue);
+                    return T::DbWeight::get().writes(processed.into());
+                }
+            }
+        }
+    }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -698,21 +783,56 @@ pub mod pallet {
                 if session.ended_at.is_some() {
                     return Err(Error::<T>::SessionHasBeenRewarded.into());
                 }
-
+                let jurors_for_session = <JurySelection<T>>::get(&content_id)
+                    .into_iter()
+                    .collect::<BTreeSet<T::Did>>();
                 if session.verdict.escalated {
                     // slash jurors that did not vote
-                    let jurors_for_session = <JurySelection<T>>::get(&content_id).into_iter().collect::<BTreeSet<T::Did>>();
                     let jurors_that_voted = session
                         .verdict
                         .votes
                         .iter()
                         .map(|vote| vote.juror.clone())
                         .collect::<BTreeSet<T::Did>>();
-                    
-                    
-                    let diff = jurors_for_session.difference(&jurors_that_voted).collect::<Vec<_>>();
+
+                    let mut diff = jurors_for_session
+                        .difference(&jurors_that_voted)
+                        .cloned()
+                        .collect::<Vec<_>>();
+                    let mut pending_slashes = <PendingSlashes<T>>::get();
+                    pending_slashes
+                        .try_append(&mut diff)
+                        .map_err(|_| Error::<T>::StorageOverflow)?;
+                    <PendingSlashes<T>>::put(pending_slashes);
+                    session.ended_at = Some(frame_system::Pallet::<T>::block_number());
+                    <Dispute<T>>::insert(&content_id, session);
                     return Ok(());
                 }
+
+                // prepare to punish users that did not vote
+                let jurors_that_voted = session
+                    .verdict
+                    .votes
+                    .iter()
+                    .map(|vote| vote.juror.clone())
+                    .collect::<BTreeSet<T::Did>>();
+                let mut diff = jurors_for_session
+                    .difference(&jurors_that_voted)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                let mut pending_slashes = <PendingSlashes<T>>::get();
+                pending_slashes
+                    .try_append(&mut diff)
+                    .map_err(|_| Error::<T>::StorageOverflow)?;
+                <PendingSlashes<T>>::put(pending_slashes);
+
+                // prepare reward jurors that voted jurors
+                let mut pending_rewards = <PendingRewards<T>>::get();
+                let mut jurors_that_voted = jurors_that_voted.into_iter().collect::<Vec<_>>();
+                pending_rewards
+                    .try_append(&mut jurors_that_voted)
+                    .map_err(|_| Error::<T>::StorageOverflow)?;
+                <PendingRewards<T>>::put(pending_rewards);
 
                 session.ended_at = Some(frame_system::Pallet::<T>::block_number());
                 <Dispute<T>>::insert(&content_id, session);
