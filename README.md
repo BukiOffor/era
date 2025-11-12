@@ -110,7 +110,7 @@ Era solves this by:
 2. Build the project:
 
    ```sh
-   cargo build --release
+   cargo build --release --workspace
    ```
 
 3. Run tests:
@@ -122,7 +122,7 @@ Era solves this by:
 ### Running a Local Node
 
 ```sh
-cargo run --release -- --dev
+./target/release/parachain-template-node --chain ./chain_spec.json --dev
 ```
 
 ## Project Structure
