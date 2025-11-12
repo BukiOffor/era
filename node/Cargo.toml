@@ -26,6 +26,7 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 
 # local dependencies
 pallet-content-registry-rpc = { workspace = true, default-features = false }
+pallet-context-court-rpc = { workspace = true, default-features = false }
 shared = { workspace = true, default-features = false }
 [build-dependencies]
 polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils"] }
@@ -37,6 +38,7 @@ std = [
 	"parachain-template-runtime/std",
 	"polkadot-sdk/std",
 	"pallet-content-registry-rpc/std",
+	"pallet-context-court-rpc/std",
 	"shared/std",
 ]
 runtime-benchmarks = [

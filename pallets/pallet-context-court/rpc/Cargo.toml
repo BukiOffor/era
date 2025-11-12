@@ -1,13 +1,14 @@
 [package]
-name = "pallet-content-registry-rpc"
+name = "pallet-context-court-rpc"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-polkadot-sdk = { workspace = true, features = ["sp-blockchain"] }
-content-runtime-api = { path = "./runtime-api", default-features = false }
-jsonrpsee = { features = ["server"], workspace = true }
+polkadot-sdk = { workspace = true, features = ["sp-blockchain", "sp-runtime"] }
+context-runtime-api = { path = "./runtime-api", default-features = false }
+jsonrpsee = { features = ["server"], workspace = true}
+
 lazy_static = { version = "1.4.0", optional = true }
 tokio = { version = "1.17.0", optional = true }
 serde = "1.0.136"
@@ -23,6 +24,6 @@ lazy_static = "1.4.0"
 [features]
 default = ["std"]
 std = [
-    "content-runtime-api/std",
+    "context-runtime-api/std",
     "polkadot-sdk/std",
 ]

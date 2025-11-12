@@ -12,6 +12,8 @@ members = [
     "pallets/*",
     "pallets/pallet-content-registry/rpc",
     "pallets/pallet-content-registry/rpc/runtime-api",
+    "pallets/pallet-context-court/rpc",
+    "pallets/pallet-context-court/rpc/runtime-api",
     "runtime",
 ]
 
@@ -46,6 +48,9 @@ pallet-identity-registry = { path = "./pallets/pallet-identity-registry", defaul
 shared = { path = "./pallets/shared", default-features = false }
 pallet-content-registry-rpc = { path = "./pallets/pallet-content-registry/rpc", default-features = false }
 content-runtime-api  =  {path = "./pallets/pallet-content-registry/rpc/runtime-api", default-features = false}
+
+pallet-context-court-rpc = { path = "./pallets/pallet-context-court/rpc", default-features = false }
+context-runtime-api = { path = "./pallets/pallet-context-court/rpc/runtime-api", default-features = false}
 
 [profile.release]
 opt-level = 3

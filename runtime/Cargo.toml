@@ -33,6 +33,7 @@ pallet-content-registry.workspace = true
 pallet-identity-registry.workspace = true
 shared.workspace = true
 content-runtime-api = { workspace = true, default-features = false }
+context-runtime-api = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]
@@ -48,7 +49,8 @@ std = [
 	"serde_json/std",
 	"substrate-wasm-builder",
 	"shared/std",
-	"content-runtime-api/std"
+	"content-runtime-api/std",
+	"context-runtime-api/std"
 ]
 
 runtime-benchmarks = [

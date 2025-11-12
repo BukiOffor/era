@@ -43,9 +43,11 @@ where
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
     C::Api: BlockBuilder<Block>,
     C::Api: pallet_content_registry_rpc::ContentRegistryApi<Block, ContentId>,
+    C::Api: pallet_context_court_rpc::ContextCourtApi<Block, ContentId>,
     P: TransactionPool + Sync + Send + 'static,
 {
     use pallet_content_registry_rpc::{PalletContentRegistry, PalletContentRegistryApiServer};
+    use pallet_context_court_rpc::{PalletContextCourt, PalletContextCourtApiServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
 
@@ -56,5 +58,6 @@ where
     module.merge(System::new(client.clone(), pool).into_rpc())?;
     module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
     module.merge(PalletContentRegistry::new(client.clone()).into_rpc())?;
+    module.merge(PalletContextCourt::new(client.clone()).into_rpc())?;
     Ok(module)
 }

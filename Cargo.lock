@@ -2344,6 +2344,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "context-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk 2503.0.1",
+]
+
+[[package]]
 name = "convert_case"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8541,6 +8549,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-context-court-rpc"
+version = "0.1.0"
+dependencies = [
+ "assert_matches",
+ "context-runtime-api",
+ "jsonrpsee",
+ "lazy_static",
+ "parity-scale-codec",
+ "polkadot-sdk 2503.0.1",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "pallet-contracts"
 version = "40.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10051,6 +10074,7 @@ dependencies = [
  "jsonrpsee",
  "log",
  "pallet-content-registry-rpc",
+ "pallet-context-court-rpc",
  "parachain-template-runtime",
  "polkadot-sdk 2503.0.1",
  "serde",
@@ -10063,6 +10087,7 @@ name = "parachain-template-runtime"
 version = "0.1.0"
 dependencies = [
  "content-runtime-api",
+ "context-runtime-api",
  "cumulus-pallet-parachain-system",
  "docify",
  "hex-literal",

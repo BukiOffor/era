@@ -69,15 +69,26 @@ impl Runtime {
 
 impl_runtime_apis! {
     impl content_runtime_api::PalletContentRegistryApi<
-              Block,
-              ContentId,
-               // RuntimeApiTypes::ContentId,
-               // RuntimeApiTypes::Content
-           > for Runtime {
-               fn check_proof_of_reality(content_id: ContentId) -> bool {
-                   pallet_content_registry::Pallet::<Runtime>::get_content(content_id).is_some()
-               }
+            Block,
+            ContentId,
+            // RuntimeApiTypes::ContentId,
+            // RuntimeApiTypes::Content
+        > for Runtime {
+            fn check_proof_of_reality(content_id: ContentId) -> bool {
+                pallet_content_registry::Pallet::<Runtime>::get_content(content_id).is_some()
+            }
+    }
+    
+    impl context_runtime_api::PalletContextCourtApi<
+        Block,
+        ContentId
+    > for Runtime {
+        fn has_dispute(content_id: ContentId) -> bool {
+            pallet_context_court::Pallet::<Runtime>::get_dispute(content_id).is_some()
         }
+        
+    }
+    
     impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
         fn slot_duration() -> sp_consensus_aura::SlotDuration {
             Runtime::impl_slot_duration()
