@@ -19,8 +19,8 @@ pub mod pallet {
     use shared::types::BaseRight;
     
     use frame::prelude::{
-        fungible::{Inspect, InspectHold, Mutate, MutateHold},
-        *,
+        fungible::MutateHold,
+     //   *,
     };
  
     type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<

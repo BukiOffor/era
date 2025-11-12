@@ -363,7 +363,11 @@ impl pallet_context_court::Config for Runtime {
     type MinJurorsPerDispute = ConstU32<100>;
     type MaxContextLength = ConstU32<500>;
     type HoldAmount = ConstU128<1000>;
+    type RewardAmount = ConstU128<120>;
     type SlashAmount = ConstU128<200>;
     type ExclusionFee = ConstU128<100>;
     type EscalatedVotingPeriod = ConstU32<3000>;
+    type MaxRewardsNumber = ConstU32<500>;
+    type BatchRewardSize = ConstU32<10>;
+
 }
