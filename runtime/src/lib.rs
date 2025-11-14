@@ -330,6 +330,8 @@ mod runtime {
     pub type ContentRegistry = pallet_content_registry;
     #[runtime::pallet_index(52)]
     pub type ContextCourt = pallet_context_court;
+    #[runtime::pallet_index(53)]
+    pub type Randomness = polkadot_sdk::pallet_insecure_randomness_collective_flip;
 }
 
 #[docify::export(register_validate_block)]

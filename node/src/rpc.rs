@@ -7,7 +7,8 @@
 
 use std::sync::Arc;
 
-use parachain_template_runtime::{opaque::Block, AccountId, Balance, Content, Did, Nonce};
+//use parachain_template_runtime::{opaque::Block, AccountId, Balance, Content, Did, Nonce};
+use parachain_template_runtime::{opaque::Block, AccountId, Balance, Nonce};
 use shared::types::ContentId;
 
 use polkadot_sdk::*;

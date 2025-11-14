@@ -350,14 +350,21 @@ pub mod pallet {
                 Self::is_valid_signatory(&did, &who, &T::GivenRight::from(BaseRight::Update)),
                 Error::<T>::SignerDoesNotHaveRight
             );
-            DidDevices::<T>::try_mutate(&did, |devices| -> DispatchResult {
-                devices
-                    .take()
-                    .unwrap_or_default()
-                    .try_push(device.clone())
-                    .map_err(|_| Error::<T>::TooManyDevices)?;
-                Ok(())
-            })?;
+            // DidDevices::<T>::try_mutate(&did, |devices| -> DispatchResult {
+            //     devices
+            //         .take()
+            //         .unwrap_or_default()
+            //         .try_push(device.clone())
+            //         .map_err(|_| Error::<T>::TooManyDevices)?;
+            //     Ok(())
+            // })?;
+            
+            let mut devices = DidDevices::<T>::get(&did).unwrap_or_default();
+            devices
+                .try_push(device.clone())
+                .map_err(|_| Error::<T>::TooManyDevices)?;
+            DidDevices::<T>::insert(did.clone(), devices);
+            
             Self::deposit_event(Event::DeviceRegistered {
                 block_number: <frame_system::Pallet<T>>::block_number(),
                 who,
@@ -380,7 +387,9 @@ pub mod pallet {
                 Error::<T>::SignerDoesNotHaveRight
             );
             DidDevices::<T>::try_mutate(&did, |devices| -> DispatchResult {
-                devices.take().unwrap_or_default().retain(|d| d != &device);
+                let mut vec = core::mem::take(devices).unwrap_or_default(); // takes devices and leaves an empty vec in storage
+                vec.retain(|d| d != &device);
+                *devices = Some(vec);
                 Ok(())
             })?;
             Self::deposit_event(Event::DeviceRemoved {

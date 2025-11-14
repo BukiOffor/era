@@ -450,7 +450,7 @@ pub mod pallet {
 
         #[pallet::call_index(3)]
         #[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(10))]
-        pub fn start_delibration(origin: OriginFor<T>, content_id: ContentId) -> DispatchResult {
+        pub fn start_deliberation(origin: OriginFor<T>, content_id: ContentId) -> DispatchResult {
             ensure_signed(origin)?;
             let session = <Dispute<T>>::get(&content_id);
             let current_block = <frame_system::Pallet<T>>::block_number();
@@ -630,7 +630,7 @@ pub mod pallet {
                             .map_err(|_| Error::<T>::StorageOverflow.into())?;
                         Ok(())
                     })?;
-                    return Err(Error::<T>::SessionEscalated.into());
+                    return Ok(());
                 }
                 let result = match convict_votes > votes_required_to_pass {
                     true => Decision::Convict,

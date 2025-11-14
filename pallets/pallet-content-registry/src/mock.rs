@@ -1,12 +1,12 @@
 use frame::{
-    deps::{frame_support::weights::constants::RocksDbWeight, frame_system::GenesisConfig},
+    deps::{frame_support::weights::constants::RocksDbWeight},
     prelude::*,
     runtime::prelude::*,
     testing_prelude::*,
 };
 use pallet_identity_registry;
 use shared::types::BaseRight;
-use polkadot_sdk::pallet_balances;
+use polkadot_sdk::{pallet_balances, sp_io};
 
 type Balance = u128;
 // Configure a mock runtime to test the pallet.
@@ -90,9 +90,22 @@ impl crate::Config for Test {
 }
 
 // Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> TestState {
-    GenesisConfig::<Test>::default()
+pub fn new_test_ext() -> sp_io::TestExternalities {
+    let t = frame_system::GenesisConfig::<Test>::default()
         .build_storage()
         .unwrap()
-        .into()
+        .into();
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.execute_with(|| {
+        System::set_block_number(1);
+        // Set the balance of our multi account to 10000
+        let root: RuntimeOrigin = RuntimeOrigin::root();
+        Balances::force_set_balance(root.clone(), crate::tests::ALICE, 10000000)
+            .expect("Balance should have been set successfully");
+        Balances::force_set_balance(root.clone(), crate::tests::BOB, 10000000)
+            .expect("Balance should have been set successfully");
+        Balances::force_set_balance(root.clone(), crate::tests::OSCAR, 10000000)
+            .expect("Balance should have been set successfully");
+    });
+    ext
 }
