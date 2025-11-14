@@ -570,7 +570,7 @@ fn should_fail_to_vote_twice() {
         // Setup session with juror
         use crate::pallet::{Dispute, CourtSession, Verdict};
         
-        let mut session = CourtSession {
+        let session = CourtSession {
             jurors: BoundedVec::try_from(vec![did.clone()]).unwrap(),
             started_at: Some(1),
             ended_at: None,
